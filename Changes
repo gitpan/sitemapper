@@ -1,9 +1,9 @@
 Revision history for Perl extension sitemapper.
 
-1.001  Mon Jul 13 09:42:59 1998
+1.001 Mon Jul 13 09:42:59 1998
         - original version; created by h2xs 1.18
 
-1.002  Mon Jul 13 14:32:22 1998
+1.002 Mon Jul 13 14:32:22 1998
         - BEGIN block for command line options parsing
         - use `perl sitemapper ...` in test.pl - not dependent shebang line
         - use Pod::PlainText instead of Pod::Text
@@ -28,3 +28,11 @@ Revision history for Perl extension sitemapper.
           used for apache style configuration of access control
         - yet more formatting options (html / js/ text)
         - -abstract option for auto-generating a short abstract
+
+1.007 Thu Mar 25 17:39:53 GMT 1999
+        - Major redesign, with most of sitemapper.pl functionality now in
+          WWW::Sitemap
+        - LWP::AuthenAgent now does the authentication stuff
+        - Javascript Tree class modified to avoid having to use external gifs
+        - WWW::Sitemap supports a traverse method, so that user defined output
+          formats can be supported

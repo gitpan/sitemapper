@@ -3,19 +3,21 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     'NAME'	        => 'sitemapper',
-    'EXE_FILES'         => [ 'sitemapper' ],
+    'EXE_FILES'         => [ 'sitemapper.pl' ],
     'PREREQ_PM'         => 
-    { 
-        'Getopt::Long'          => 0,
-        'IO::File'              => 0,
-        'LWP::UserAgent'        => 0,
-        'HTML::LinkExtor'       => 0,
-        'URI::URL'              => 0,
-        'Pod::Text'             => 0,
-        'MD5'                   => 0,
-        'Date::Format'          => 0,
+    {
+        'WWW::Robot'    => 0,
+        'HTML::Summary' => 0,
+        'Digest::MD5'   => 0,
+        'Date::Format'  => 0,
+        'Getopt::Long'  => 0,
+        'HTML::Entities'=> 0,
+        'IO::File'      => 0,
+        'LWP::UserAgent'=> 0,
+        'URI::URL'      => 0,
+        'Term::ReadKey' => 0,
     },
-    'VERSION_FROM'      => 'sitemapper', # finds $VERSION
+    'VERSION_FROM'      => 'sitemapper.pl', # finds $VERSION
     'dist'         => {
         'COMPRESS' => 'gzip',
         'SUFFIX'   => 'gz',
