@@ -36,3 +36,6 @@ Revision history for Perl extension sitemapper.
         - Javascript Tree class modified to avoid having to use external gifs
         - WWW::Sitemap supports a traverse method, so that user defined output
           formats can be supported
+
+1,008 Wed Mar 31 19:39:47 BST 1999
+        - Dependency on WWW::Robot version 1.017 made explicit in Makefile.PL

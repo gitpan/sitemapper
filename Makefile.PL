@@ -6,7 +6,7 @@ WriteMakefile(
     'EXE_FILES'         => [ 'sitemapper.pl' ],
     'PREREQ_PM'         => 
     {
-        'WWW::Robot'    => 0,
+        'WWW::Robot'    => 0.017,
         'HTML::Summary' => 0,
         'Digest::MD5'   => 0,
         'Date::Format'  => 0,

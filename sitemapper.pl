@@ -231,7 +231,7 @@ use vars qw (
 ( $NAME ) = $0 =~ m{([^/]+)$};
 
 $CONTACT = 'wrigley@cre.canon.co.uk';
-$VERSION = '1.007';
+$VERSION = '1.008';
 $WHEN = time2str( "on %A the %o of %B %Y at %r", time );
 $HEADER = sub {
     my $title = shift;
@@ -512,7 +512,7 @@ USAGE
 #
 #==============================================================================
 
-usage() unless GetOptions qw( 
+usage() unless GetOptions qw(
     help 
     doc 
     verbose 
