@@ -257,7 +257,7 @@ use vars qw (
 ( $NAME ) = $0 =~ m{([^/]+)$};
 
 $CONTACT = 'wrigley@cre.canon.co.uk';
-$VERSION = '1.015';
+$VERSION = '1.016';
 $WHEN = time2str( "on %A the %o of %B %Y at %r", time );
 $HEADER = sub {
     my $title = shift;
@@ -489,8 +489,8 @@ sub AUTOLOAD {
     my ( $function ) = $AUTOLOAD =~ m/.*::(.*)/;
     return unless exists( $DOC2POD{ $function } );
     pod2usage( 
-        verbose => $DOC2POD{ $function }[ 0 ],
-        exitval => $DOC2POD{ $function }[ 1 ]
+        'verbose' => $DOC2POD{ $function }[ 0 ],
+        'exitval' => $DOC2POD{ $function }[ 1 ]
     );
 }
 
@@ -640,7 +640,7 @@ sub create_useragent
         verbose( "proxy = $opt_proxy ..." );
         $ua->proxy( [ 'http' ], $opt_proxy );
     }
-    elsif ( $opt_envproxy )
+    elsif ( $opt_envproxy and exists( $ENV{ http_proxy } ) )
     {
         verbose( "getting proxy from environment ..." );
         verbose( "proxy = $ENV{ http_proxy } ..." );

@@ -279,6 +279,7 @@ use strict;
 
 use WWW::Robot;
 use HTML::Summary;
+use HTML::TreeBuilder;
 use Digest::MD5 qw( md5_hex );
 
 #==============================================================================
@@ -477,7 +478,11 @@ sub url_callback
 
 sub generate
 {
-    my $self    = shift;
+    my $self = shift;
+
+    $self->{ 'ROOT' } = "$self->{ 'ROOT' }/"
+        unless $self->{ 'ROOT' } =~ m{/$/}
+    ;
 
     # Create HTML::Summary
 
@@ -512,6 +517,9 @@ sub generate
         sub {
             my( $robot, $hook, $url, $response, $structure ) = @_;
             my $contents = $response->content();
+            $contents =~ s{<(script|style).*?>.*?</\1>}{}sgi;
+            my $element = new HTML::TreeBuilder;
+            $element->parse( $contents );
             my $MD5_digest = md5_hex( $contents );
             if ( exists( $self->{ 'MD5_digest' }{ $MD5_digest } ) )
             {
@@ -523,11 +531,12 @@ sub generate
             {
                 $self->{ 'MD5_digest' }{ $MD5_digest } = $url;
                 $self->{ 'urls' }{ $url }++;
-                $self->get_title( $url, $structure );
+                $self->get_title( $url, $element );
                 $self->{ 'summary' }{ $url } = 
-                    $self->{ 'summarizer' }->generate( $structure ) ||
+                    $self->{ 'summarizer' }->generate( $element ) ||
                     'NO SUMMARY'
                 ;
+                shrink_whitespace( $self->{ 'summary' }{ $url } );
                 $self->{ 'url-callback' }->( 
                     $url,
                     $self->{ 'depth' }{ $url },
@@ -550,13 +559,13 @@ sub generate
             return unless $to_url =~ m{(?:/|\.s?html?)$};
             if ( not defined( $self->{ 'depth' }{ $to_url } ) )
             {
-                $self->{ 'depth' }{ $to_url } = 
-                    $self->{ 'depth' }{ $from_url } + 1
-                ;
+                my $from = $self->{ 'depth' }{ $from_url };
+                $self->{ 'depth' }{ $to_url } = $from + 1;
             }
             # check the current depth, if the DEPTH option is set
             return if ( 
                 defined $self->{ DEPTH } and
+                defined $self->{ 'depth' }{ $to_url } and
                 $self->{ 'depth' }{ $to_url } >= $self->{ DEPTH }
             );
             $self->{ 'link' }{ $from_url }{ $to_url }++;
@@ -573,8 +582,9 @@ sub generate
             # don't follow links that don't look like HTML links
             return 0 unless $url =~ m{(?:/|\.s?html?)$};
             # check the current depth, if the DEPTH option is set
-            return 0 if ( 
+            return 0 if (
                 defined $self->{ DEPTH } and
+                defined $self->{ 'depth' }{ $url } and
                 $self->{ 'depth' }{ $url } >= $self->{ DEPTH }
             );
             return 1;
@@ -590,6 +600,7 @@ sub generate
             # don't follow links that don't look like HTML links
             return 0 unless $url =~ m{(?:/|\.s?html?)$};
             # check the current depth, if the DEPTH option is set
+
             return 0 if ( 
                 defined $self->{ DEPTH } and
                 $self->{ 'depth' }{ $url } >= $self->{ DEPTH }
@@ -730,7 +741,7 @@ sub get_title
                 $self->{ 'title' }{ $url } = 
                     ( 
                         defined $self->{ 'title' }{ $url } ? 
-                            "$self->{ title }{ $url } $bit" 
+                            "$self->{ 'title' }{ $url } $bit" 
                         :
                             $bit 
                     )
@@ -756,6 +767,7 @@ sub get_title
 
 sub shrink_whitespace
 {
+    $_[ 0 ] =~ s!\240=! !g;
     $_[ 0 ] =~ s!^\s*!!; 
     $_[ 0 ] =~ s!\s*$!!;
     $_[ 0 ] =~ s!\s+! !g;
