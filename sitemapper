@@ -1,4 +1,6 @@
-#!/apps/perl5/bin/perl -w
+eval 'exec perl -S $0 "$@"'
+    if $runnning_under_some_shell
+;
 
 #-----------------------------------------------------------------------
 
@@ -80,7 +82,7 @@ IO::File (L<IO::File>)
 LWP::UserAgent (L<LWP::UserAgent>)
 HTML::LinkExtor (L<HTML::LinkExtor>)
 URI::URL (L<URI::URL>)
-Pod::Text (L<Pod::Text>)
+Pod::PlainText (L<Pod::PlainText>)
 MD5 (L<MD5>)
 Date::Format (L<Date::Format>)
 
@@ -93,7 +95,7 @@ use IO::File;
 use LWP::UserAgent;
 use HTML::LinkExtor;
 use URI::URL;
-use Pod::Text;
+use Pod::PlainText;
 use MD5;
 use Date::Format;
 
@@ -103,9 +105,7 @@ use Date::Format;
 #
 #------------------------------------------------------------------------------
 
-use vars qw( $VERSION );
-
-$VERSION = '1.001';
+use vars qw( $NAME $VERSION $CONTACT $USAGE $POD );
 
 #------------------------------------------------------------------------------
 #
@@ -126,14 +126,9 @@ my (
     $opt_proxy,
     $opt_output,
 
-    $Contact,           # contect e-mail address
-    $Name,              # name of the program
     %MD5Hash,           # MD5 hash to identify identical pages
     %UrlSeen,           # hash of URLs already seen
 );
-
-( $Name ) = $0 =~ m{([^/]+)$};
-$Contact = 'wrigley@cre.canon.co.uk';
 
 #-----------------------------------------------------------------------
 
@@ -155,32 +150,69 @@ it under the same terms as Perl itself.
 
 =cut
 
+#------------------------------------------------------------------------------
+#
+# BEGIN block - initialize public globals, and parse command line
+#
+#------------------------------------------------------------------------------
+
+BEGIN
+{
+    ( $NAME ) = $0 =~ m{([^/]+)$};
+
+    $CONTACT = 'wrigley@cre.canon.co.uk';
+
+    $VERSION = '1.002';
+
+    $POD = sub {
+        pod2plaintext( $0 );
+        exit( 0 );
+    };
+
+    $USAGE = sub {
+
+    print STDERR <<USAGE;
+
+$NAME version $VERSION
+
+usage : 
+    $NAME [options]
+
+options :
+    -site <base URL>    REQUIRED        # base URL of the site
+    -output <filename>  OPTIONAL        # output file
+    -verbose            OPTIONAL        # Print verbose messages
+    -depth <depth>      OPTIONAL        # Maximum depth of sitemap
+    -proxy <proxy URL>  OPTIONAL        # HTTP proxy
+    -help               OPTIONAL        # Print this message
+    -doc                OPTIONAL        # Print POD documentation
+USAGE
+
+    exit( 0 );
+
+    };
+
+    &$USAGE unless GetOptions
+        'help'      => \$opt_help,
+        'doc'       => \$opt_doc,
+        'depth=i'   => \$opt_depth,
+        'site=s'    => \$opt_site,
+        'output=s'  => \$opt_output,
+        'proxy=s'   => \$opt_proxy,
+        'title=s'   => \$opt_title,
+        'verbose'   => \$opt_verbose,
+    ;
+
+    &$USAGE if $opt_help;
+    &$POD if $opt_doc;
+    &$USAGE unless $opt_site;
+}
+
 #==============================================================================
 #
 # Start of main
 #
 #==============================================================================
-
-#------------------------------------------------------------------------------
-#
-# Get command line options
-#
-#------------------------------------------------------------------------------
-
-&usage unless GetOptions
-    'help'      => \$opt_help,
-    'doc'       => \$opt_doc,
-    'depth=i'   => \$opt_depth,
-    'site=s'    => \$opt_site,
-    'output=s'  => \$opt_output,
-    'proxy=s'   => \$opt_proxy,
-    'title=s'   => \$opt_title,
-    'verbose'   => \$opt_verbose,
-;
-
-&usage if $opt_help;
-&pod_self if $opt_doc;
-&usage unless $opt_site;
 
 #------------------------------------------------------------------------------
 #
@@ -643,9 +675,9 @@ sub page_end
         <TABLE WIDTH = "100%">
             <TR>
                 <TD VALIGN = "TOP" ALIGN = "LEFT">
-                    $Name version $VERSION
+                    $NAME version $VERSION
                 <TD VALIGN = "TOP" ALIGN = "RIGHT">
-                    <A HREF = "mailto:$Contact">$Contact</A>
+                    <A HREF = "mailto:$CONTACT">$CONTACT</A>
             <TR>
                 <TD COLSPAN = 2 VALIGN = "TOP" ALIGN = "LEFT">
                     Generated $when
@@ -657,47 +689,6 @@ HTML_FOOTER
 
 #------------------------------------------------------------------------------
 #
-# usage - die with a usage message
-#
-#------------------------------------------------------------------------------
-
-sub usage
-{
-    print STDERR <<USAGE;
-
-$Name version $VERSION
-
-usage : 
-    $Name [options]
-
-options :
-    -site <base URL>    REQUIRED        # base URL of the site
-    -output <filename>  OPTIONAL        # output file
-    -verbose            OPTIONAL        # Print verbose messages
-    -depth <depth>      OPTIONAL        # Maximum depth of sitemap
-    -proxy <proxy URL>  OPTIONAL        # HTTP proxy
-    -help               OPTIONAL        # Print this message
-    -doc                OPTIONAL        # Print POD documentation
-USAGE
-
-    exit( 0 );
-}
-
-#------------------------------------------------------------------------------
-#
-# pod_self - dump my POD as text
-#
-#------------------------------------------------------------------------------
-
-sub pod_self
-{
-    $Pod::Text::termcap = 1;
-    print pod2text( $0 );
-    exit( 0 );
-}
-
-#------------------------------------------------------------------------------
-#
 # verbose - echo to STDERR if in verbose mode
 #
 #------------------------------------------------------------------------------
@@ -705,7 +696,7 @@ sub pod_self
 sub verbose
 {
     return unless $opt_verbose;
-    print STDERR "$Name: ", shift, "\n";
+    print STDERR "$NAME: ", shift, "\n";
 }
 
 #==============================================================================

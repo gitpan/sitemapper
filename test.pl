@@ -22,5 +22,5 @@ sub check_sitemap
     my $site = shift;
     
     print STDERR "testing $site sitemap ...\n";
-    return ! system( "./sitemapper -verbose -site $site -output /dev/null" );
+    return ! system( "perl sitemapper -verbose -site $site -output /dev/null" );
 }

@@ -1,5 +1,9 @@
 Revision history for Perl extension sitemapper.
 
 1.001  Mon Jul 13 09:42:59 1998
-	- original version; created by h2xs 1.18
+        - original version; created by h2xs 1.18
 
+1.002  Mon Jul 13 14:32:22 1998
+        - BEGIN block for command line options parsing
+        - use `perl sitemapper ...` in test.pl - not dependent shebang line
+        - use Pod::PlainText instead of Pod::Text
