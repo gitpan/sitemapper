@@ -180,8 +180,7 @@ The Javascript sitemap has only been tested on Netscape 4.05.
 
 =head1 AUTHOR
 
-Ave Wrigley E<lt>wrigley@cre.canon.co.ukE<gt>
-Web Group, Canon Research Centre Europe
+Ave Wrigley E<lt>Ave.Wrigley@itn.co.ukE<gt>
 
 =head1 COPYRIGHT
 
@@ -256,8 +255,8 @@ use vars qw (
 
 ( $NAME ) = $0 =~ m{([^/]+)$};
 
-$CONTACT = 'wrigley@cre.canon.co.uk';
-$VERSION = '1.016';
+$CONTACT = 'Ave.Wrigley@itn.co.uk';
+$VERSION = '1.019';
 $WHEN = time2str( "on %A the %o of %B %Y at %r", time );
 $HEADER = sub {
     my $title = shift;
@@ -796,7 +795,7 @@ sub get_options_from_gui
             -text	=> <<ABOUT_TEXT,
 
 sitemapper $VERSION by Ave Wrigley 
-    <wrigley\@cre.canon.co.uk>
+    <Ave.Wrigley\@itn.co.uk>
 Tk GUI version by Nicholas Marshall 
     <nmarshall\@pbs.org>
             

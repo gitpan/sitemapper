@@ -246,7 +246,7 @@ use of the traverse method.
 
 =head1 AUTHOR
 
-Ave Wrigley E<lt>wrigley@cre.canon.co.ukE<gt>
+Ave Wrigley E<lt>Ave.Wrigley@itn.co.ukE<gt>
 
 =head1 COPYRIGHT
 
@@ -481,7 +481,7 @@ sub generate
     my $self = shift;
 
     $self->{ 'ROOT' } = "$self->{ 'ROOT' }/"
-        unless $self->{ 'ROOT' } =~ m{/$/}
+        unless $self->{ 'ROOT' } =~ m{/$}
     ;
 
     # Create HTML::Summary
@@ -735,17 +735,23 @@ sub get_title
             return 1 if $node->tag ne 'title';
             return 0 if $start_flag == 0;
 
-            foreach my $bit ( @{ $node->content } )
+            if (
+                defined( $node->content ) and
+                ref( $node->content ) eq 'ARRAY'
+            )
             {
-                next if not defined $bit || ref( $bit ) ne '';
-                $self->{ 'title' }{ $url } = 
-                    ( 
-                        defined $self->{ 'title' }{ $url } ? 
-                            "$self->{ 'title' }{ $url } $bit" 
-                        :
-                            $bit 
-                    )
-                ;
+                foreach my $bit ( @{ $node->content } )
+                {
+                    next if not defined $bit || ref( $bit ) ne '';
+                    $self->{ 'title' }{ $url } = 
+                        ( 
+                            defined $self->{ 'title' }{ $url } ? 
+                                "$self->{ 'title' }{ $url } $bit" 
+                            :
+                                $bit 
+                        )
+                    ;
+                }
             }
         },
         1

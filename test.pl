@@ -30,7 +30,7 @@ my $ok_count = 1;
 
 $| = 1;
 
-my $default_url = 'http://www.cre.canon.co.uk/';
+my $default_url = 'http://www.itn.co.uk/';
 print STDERR "Type the URL to generate a sitemap for: [$default_url] "; 
 my $url = <>;
 chomp( $url );
@@ -43,7 +43,7 @@ if ( defined( $ENV{ http_proxy } ) )
 }
 else
 {
-    print STDERR "Do you need to use a proxy [y|n]? ";
+    print STDERR "Do you need to use a proxy [y|N]? ";
     if ( <> =~ /^[y|Y]/ )
     {
         print STDERR "What is the URL of your proxy? ";

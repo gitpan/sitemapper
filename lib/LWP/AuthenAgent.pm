@@ -37,7 +37,7 @@ LWP::AuthenAgent inherits all the methods available in LWP::UserAgent.
 
 =head1 AUTHOR
 
-Ave Wrigley E<lt>wrigley@cre.canon.co.ukE<gt>
+Ave Wrigley E<lt>Ave.Wrigley@itn.co.ukE<gt>
 
 =head1 COPYRIGHT
 

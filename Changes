@@ -72,3 +72,9 @@ Revision history for Perl extension sitemapper.
 	- ROOT urls without trailing slash
 	- removing SCRIPT / STYLE text
 	- removing &nbsp;
+
+1.017 Fri Nov 12 18:40:39 GMT 1999
+        - changes to doc to reflect new e-mail address
+
+1.018 Tue Nov 23 12:40:29 GMT 1999
+        - bug in WWW::Sitemap regex to add a trailing "/" where necessary

@@ -40,4 +40,4 @@ http://www.cre.canon.co.uk/::Canon Research Centre Home Page
     http://www.cre.canon.co.uk/techover/cvg.htm::Computer Vision Group
 --------------------------------------------------------------------------------
 Generated on Thursday the 25th of March 1999 at 03:06:30 PM
-sitemapper.pl version 1.007 wrigley@cre.canon.co.uk
+sitemapper.pl version 1.007 Ave.Wrigley@itn.co.uk
