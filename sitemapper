@@ -10,7 +10,7 @@ sitemapper - script for generating site maps
 
 =head1 SYNOPSIS
 
-    sitemapper [ -verbose ] [ -help ] [-doc ] [ -depth <depth> ] [ -proxy <proxy URL> ] [ -title <page title> ] -site <base URL>
+    sitemapper [ -verbose ] [ -help ] [-doc ] [ -depth <depth> ] [ -proxy <proxy URL> ] [ -format <html|js> ] [ -title <page title> ] -site <base URL>
 
 =cut
 
@@ -33,6 +33,11 @@ the next level, pages accessible from those pages, etc. Obviously, pages that
 are linked from "higher" up pages may appear in the "wrong place" in the tree,
 than they "belong".
 
+The L<OPTIONS/-format> option can be used to specify alternative options for
+formating the site map. Currently the options are html (as described above -
+the default) and js, which uses Jef Pearlman's (jef@mit.edu) javascript Tree
+class to display the site map as a collapsable tree.
+
 =head1 OPTIONS
 
 =over 4
@@ -49,6 +54,11 @@ Option to specify a base URL to generate a site map for.
 =item -proxy
 
 Specify an HTTP proxy to use.
+
+=item -format
+
+Format for the site map. Current options are html and js. html is
+the default.
 
 =item -title
 
@@ -68,6 +78,10 @@ generated from the embedded pod format doc.
 
 Enable verbose reporting as the script runs.
 
+=item -verbose
+
+Print out the current version number.
+
 =back
 
 =head1 ENVIRONMENT
@@ -82,9 +96,11 @@ IO::File (L<IO::File>)
 LWP::UserAgent (L<LWP::UserAgent>)
 HTML::LinkExtor (L<HTML::LinkExtor>)
 URI::URL (L<URI::URL>)
-Pod::PlainText (L<Pod::PlainText>)
+Pod::Usage (L<Pod::Usage>)
 MD5 (L<MD5>)
 Date::Format (L<Date::Format>)
+Jef Pearlman's javascript Tree class 
+(http://developer.netscape.com/docs/examples/dynhtml/tree.html)
 
 =cut
 
@@ -95,7 +111,6 @@ use IO::File;
 use LWP::UserAgent;
 use HTML::LinkExtor;
 use URI::URL;
-use Pod::PlainText;
 use MD5;
 use Date::Format;
 
@@ -105,7 +120,34 @@ use Date::Format;
 #
 #------------------------------------------------------------------------------
 
-use vars qw( $NAME $VERSION $CONTACT $USAGE $POD );
+use vars qw( 
+    $NAME 
+    $VERSION 
+    $CONTACT 
+    $HELP 
+    $DOC 
+    $USAGE
+    $VERBOSE 
+    $WHEN 
+    $HEADER 
+    $FOOTER 
+);
+
+# command line options - see pod
+
+use vars qw (
+    $opt_verbose
+    $opt_version
+    $opt_help
+    $opt_doc
+    $opt_depth
+    $opt_title
+    $opt_format
+    $opt_site
+    $opt_proxy
+    $opt_output
+);
+
 
 #------------------------------------------------------------------------------
 #
@@ -115,19 +157,11 @@ use vars qw( $NAME $VERSION $CONTACT $USAGE $POD );
 
 my (
 
-    # command line options - see pod
-
-    $opt_verbose,
-    $opt_depth,
-    $opt_title,
-    $opt_site,
-    $opt_help,
-    $opt_doc,
-    $opt_proxy,
-    $opt_output,
-
     %MD5Hash,           # MD5 hash to identify identical pages
     %UrlSeen,           # hash of URLs already seen
+    %Parent,            # hash of the parents of each node in the tree
+                        # - used when deleting duplicate pages (spotted by MD5
+                        # hash) or pages that can't be got by the robot
 );
 
 #-----------------------------------------------------------------------
@@ -135,6 +169,8 @@ my (
 =head1 BUGS
 
 Should use WWW::Robot (L<WWW::Robot>) to do the site traversal.
+
+The javascript sitemap has only been tested on Netscape 4.05.
 
 =head1 AUTHOR
 
@@ -152,67 +188,193 @@ it under the same terms as Perl itself.
 
 #------------------------------------------------------------------------------
 #
-# BEGIN block - initialize public globals, and parse command line
+# Initialize global variables
 #
 #------------------------------------------------------------------------------
 
-BEGIN
-{
-    ( $NAME ) = $0 =~ m{([^/]+)$};
+( $NAME ) = $0 =~ m{([^/]+)$};
 
-    $CONTACT = 'wrigley@cre.canon.co.uk';
+$CONTACT = 'wrigley@cre.canon.co.uk';
 
-    $VERSION = '1.002';
+$VERSION = '1.003';
 
-    $POD = sub {
-        pod2plaintext( $0 );
-        exit( 0 );
-    };
+$VERBOSE = sub {
+    print STDERR shift, "\n" if $opt_verbose;
+};
 
-    $USAGE = sub {
+$USAGE = sub {
+    require 'Pod/Usage.pm';
+    import Pod::Usage;
+    pod2usage( 
+        message => shift,
+        verbose => 0,
+        exitval => 1,
+    );
+};
 
-    print STDERR <<USAGE;
+$DOC = sub {
+    require 'Pod/Usage.pm';
+    import Pod::Usage;
+    pod2usage( 
+        verbose => 2,
+        exitval => 0,
+    );
+};
 
-$NAME version $VERSION
+$HELP = sub {
+    require 'Pod/Usage.pm';
+    import Pod::Usage;
+    pod2usage(
+        message => shift,
+        exitval => 0,
+        verbose => 1,
+    );
+};
 
-usage : 
-    $NAME [options]
+$WHEN = time2str( "on %A the %o of %B %Y at %r", time );
 
-options :
-    -site <base URL>    REQUIRED        # base URL of the site
-    -output <filename>  OPTIONAL        # output file
-    -verbose            OPTIONAL        # Print verbose messages
-    -depth <depth>      OPTIONAL        # Maximum depth of sitemap
-    -proxy <proxy URL>  OPTIONAL        # HTTP proxy
-    -help               OPTIONAL        # Print this message
-    -doc                OPTIONAL        # Print POD documentation
-USAGE
+$HEADER = sub {
+    my $title = shift;
 
-    exit( 0 );
+    return <<HTML_HEADER;
+<HTML>
+<HEAD>
+    <TITLE>$title</TITLE>
+</HEAD>
+<BODY BGCOLOR = "#FFFFFF">
+    <H1>$title</H1>
+    <HR NOSHADE>
+HTML_HEADER
+};
 
-    };
+$FOOTER = <<FOOTER;
+<HR NOSHADE>
+<TABLE WIDTH = "100%">
+    <TR>
+        <TD VALIGN = "TOP" ALIGN = "LEFT">
+            $NAME version $VERSION
+        <TD VALIGN = "TOP" ALIGN = "RIGHT">
+            <A HREF = "mailto:$CONTACT">$CONTACT</A>
+    <TR>
+        <TD COLSPAN = 2 VALIGN = "TOP" ALIGN = "LEFT">
+            Generated $WHEN
+</TABLE>
+FOOTER
 
-    &$USAGE unless GetOptions
-        'help'      => \$opt_help,
-        'doc'       => \$opt_doc,
-        'depth=i'   => \$opt_depth,
-        'site=s'    => \$opt_site,
-        'output=s'  => \$opt_output,
-        'proxy=s'   => \$opt_proxy,
-        'title=s'   => \$opt_title,
-        'verbose'   => \$opt_verbose,
-    ;
+&$HELP unless GetOptions qw( 
+    help 
+    doc 
+    verbose 
+    version 
+    depth=i
+    site=s
+    output=s
+    proxy=s
+    title=s
+    format=s
+);
 
-    &$USAGE if $opt_help;
-    &$POD if $opt_doc;
-    &$USAGE unless $opt_site;
-}
+&$HELP if $opt_help;
+&$DOC if $opt_doc;
+print "$VERSION\n" and exit( 0 ) if $opt_version;
+&$USAGE( '-sites argument is required' ) unless $opt_site;
+$opt_format ||= 'html';
+&$USAGE( '-format option must be one of (js|html)' )
+    unless $opt_format =~ /^(html|js)$/i
+;
+$opt_format = lc( $opt_format );
 
 #==============================================================================
 #
 # Start of main
 #
 #==============================================================================
+
+#------------------------------------------------------------------------------
+#
+# Display hashes - these hashes are used to print out sitemap, using
+# $opt_format as a key
+#
+#------------------------------------------------------------------------------
+
+my %print_start_list = (
+    'js'        => sub { print { shift } '[' },
+    'html'      => sub { print { shift } '<UL>' },
+);
+
+my %print_end_list = (
+    'js'        => sub { print { shift } ']' },
+    'html'      => sub { print { shift } '</UL>' },
+);
+
+my %print_node = (
+    'js'        => sub {
+        my $fh          = shift;
+        my $url         = shift;
+        my $title       = shift;
+
+        print $fh "'<A HREF = $url>$title</A>',";
+    },
+    'html'      => sub {
+        my $fh          = shift;
+        my $url         = shift;
+        my $title       = shift;
+
+        my ( $path );
+        ( $path = $url ) =~ s!^$opt_site!!;
+
+        print $fh <<HTML_NODE;
+<LI>
+    <DL>
+        <DT><A HREF = "$url"><B>$title</B></A>
+        <DD><A HREF = "$url">$path</A>
+    </DL>
+HTML_NODE
+    },
+);
+
+my %print_page_start = (
+    'js'        => sub {
+        my $fh      = shift;
+        my $title   = shift;
+
+        print $fh $HEADER->( $title );
+        print $fh join( '', <DATA> );
+        print $fh 
+            "<SCRIPT LANGUAGE = \"JavaScript\">\n",
+            "firstTree = new Tree ( { id:\"sitemap\", items:\""
+        ;
+    },
+    'html'      => sub {
+        my $fh      = shift;
+        my $title   = shift;
+
+        print $fh $HEADER->( $title );
+    },
+);
+
+my %print_page_end = (
+    'js'        => sub {
+        my $fh = shift;
+
+        print $fh "\"});\n";
+        print $fh <<JAVASCRIPT_FOOTER;
+</SCRIPT>
+<LAYER>$FOOTER</LAYER>
+<SCRIPT LANGUAGE = "JavaScript">
+    var layer = document.layers[ document.layers.length - 1 ]; 
+    layer.moveTo( 0, firstTree.getY() + firstTree.getHeight() );
+</SCRIPT>
+</BODY>
+</HTML>
+JAVASCRIPT_FOOTER
+    },
+    'html'      => sub {
+        my $fh = shift;
+
+        print $fh "$FOOTER</BODY></HTML>";
+    },
+);
 
 #------------------------------------------------------------------------------
 #
@@ -239,13 +401,13 @@ my $Robot = new LWP::UserAgent;
 
 if ( defined( $opt_proxy ) )
 {
-    &verbose( "proxy = $opt_proxy ..." );
+    &$VERBOSE( "proxy = $opt_proxy ..." );
     $Robot->proxy( [ 'http' ], $opt_proxy );
 }
 elsif ( defined( $ENV{ http_proxy } ) )
 {
-    &verbose( "getting proxy from environment ..." );
-    &verbose( "proxy = $ENV{ http_proxy } ..." );
+    &$VERBOSE( "getting proxy from environment ..." );
+    &$VERBOSE( "proxy = $ENV{ http_proxy } ..." );
     $Robot->env_proxy;
 }
 
@@ -299,7 +461,7 @@ die "$opt_output : $!\n" unless defined $fh;
 #
 #------------------------------------------------------------------------------
 
-page_start( 
+$print_page_start{ $opt_format }->( 
     $fh, 
     defined( $opt_title ) ? $opt_title : "Site Map for $opt_site" 
 );
@@ -310,9 +472,9 @@ page_start(
 #
 #------------------------------------------------------------------------------
 
-print $fh '<UL>';
+$print_start_list{ $opt_format }->( $fh );
 print_site_tree( $fh, $root );
-print $fh '</UL>';
+$print_end_list{ $opt_format }->( $fh );
 
 #------------------------------------------------------------------------------
 #
@@ -320,7 +482,7 @@ print $fh '</UL>';
 #
 #------------------------------------------------------------------------------
 
-page_end( $fh );
+$print_page_end{ $opt_format }->( $fh );
 
 #==============================================================================
 #
@@ -362,7 +524,7 @@ sub get_links
 
     my ( @links );
 
-    &verbose( "extracting links from $url ..." );
+    &$VERBOSE( "extracting links from $url ..." );
 
     my @frame_links = &expand_frameset( $url, $html, $base );
     return @frame_links if @frame_links;
@@ -410,7 +572,7 @@ sub get_links
             return if $UrlSeen{ $link };
             $UrlSeen{ $link }++;
 
-            &verbose( "adding $link ..." );
+            &$VERBOSE( "adding $link ..." );
 
             push( @links, $link );
         },
@@ -489,7 +651,7 @@ sub get_response
 {
     my $url = shift;
 
-    &verbose( "getting $url ..." );
+    &$VERBOSE( "getting $url ..." );
 
     my $response = $Robot->request( new HTTP::Request( 'GET', $url ) );
 
@@ -499,7 +661,7 @@ sub get_response
     }
     else
     {
-        &verbose( "failed to get $url ..." );
+        &$VERBOSE( "failed to get $url ..." );
         return undef;
     }
 }
@@ -550,7 +712,8 @@ sub create_site_tree
     {
         my $child_node;
         $child_node->{ 'url' } = $_;
-        push( @{ $node->{ children } }, $child_node );
+        $Parent{ $_ } = $node;
+        $node->{ 'children' }{ $_ } = $child_node;
         &create_site_tree( $child_node, $depth + 1 );
     }
 }
@@ -567,17 +730,41 @@ sub get_content_and_base
     my $url = shift;
 
     my $response = &get_response( $url );
-    return ( undef, undef ) unless defined $response;
+    unless ( defined $response )
+    {
+        &$VERBOSE( "failed to get $url ..." );
+        &delete_node( $url );
+        return ( undef, undef ) 
+    }
     my $base = $response->base;
     my $content = $response->content;
     my $hash = &hexhash( $content );
     if ( $MD5Hash{ $hash } )
     {
-        &verbose( "$url is identical to $MD5Hash{ $hash } ..." );
+        &$VERBOSE( "$url is identical to $MD5Hash{ $hash } ..." );
+        &delete_node( $url );
         return ( undef, undef );
     }
     $MD5Hash{ $hash } = $url;
     return ( $content, $base );
+}
+
+#------------------------------------------------------------------------------
+#
+# delete_node - delete a node from the sitemap tree
+#
+#------------------------------------------------------------------------------
+
+sub delete_node
+{
+    my $url = shift;
+
+    my $parent = $Parent{ $url };
+
+    return unless defined( $parent );
+
+    &$VERBOSE( "deleting $url for its parent, $parent->{ url } ..." );
+    delete( $parent->{ 'children' }{ $url } );
 }
 
 #------------------------------------------------------------------------------
@@ -592,111 +779,35 @@ sub print_site_tree
     my $fh      = shift;
     my $node    = shift;
 
-    return if $node->{ deleted };
-
     my $title           = $node->{ 'title' };
     my $url             = $node->{ 'url' };
     my $children        = $node->{ 'children' };
 
-    return unless $title and $url;
+    $title =~ s!\r!!g; # some wierd Windows pages have \r characters
+    &entify( $title );
 
-    print_node( $fh, $title, $url );
+    $print_node{ $opt_format }->( $fh, $url, $title );
 
-    if ( $children and @{ $children } )
+    if ( ref( $children ) eq 'HASH' and keys %{ $children } )
     {
-        print $fh '<UL>';
-        for ( @{ $children } )
+        $print_start_list{ $opt_format }->( $fh );
+        for ( keys %{ $children } )
         {
-            &print_site_tree( $fh, $_ );
+            &print_site_tree( $fh, $children->{ $_ } );
         }
-        print $fh '</UL>';
+        $print_end_list{ $opt_format }->( $fh );
     }
 }
 
 #------------------------------------------------------------------------------
 #
-# print_node - print out a node of the site tree
+# entify - convert all non-alphnumerics to HTML entities
 #
 #------------------------------------------------------------------------------
 
-sub print_node
+sub entify
 {
-    my $fh      = shift;
-    my $title   = shift;
-    my $url     = shift;
-
-    my ( $path );
-    ( $path = $url ) =~ s!^$opt_site!!;
-    print $fh <<HTML_CHILD;
-<LI>
-    <DL>
-        <DT><A HREF = "$url"><B>$title</B></A>
-        <DD><A HREF = "$url">$path</A>
-    </DL>
-HTML_CHILD
-}
-
-#------------------------------------------------------------------------------
-#
-# page_start - print out a standard HTML page header
-#
-#------------------------------------------------------------------------------
-
-sub page_start
-{
-    my $fh      = shift;
-    my $title   = shift;
-
-    print $fh <<HTML_HEADER;
-<HTML>
-    <HEAD>
-        <TITLE>$title</TITLE>
-    </HEAD>
-    <BODY BGCOLOR = "#FFFFFF">
-        <H1>$title</H1>
-        <HR NOSHADE>
-HTML_HEADER
-}
-
-#------------------------------------------------------------------------------
-#
-# page_end - print out a standard HTML page footer
-#
-#------------------------------------------------------------------------------
-
-sub page_end
-{
-    my $fh = shift;
-
-    my $when = time2str( "on %A the %o of %B %Y at %r", time );
-
-    print $fh <<HTML_FOOTER;
-        <HR NOSHADE>
-        <TABLE WIDTH = "100%">
-            <TR>
-                <TD VALIGN = "TOP" ALIGN = "LEFT">
-                    $NAME version $VERSION
-                <TD VALIGN = "TOP" ALIGN = "RIGHT">
-                    <A HREF = "mailto:$CONTACT">$CONTACT</A>
-            <TR>
-                <TD COLSPAN = 2 VALIGN = "TOP" ALIGN = "LEFT">
-                    Generated $when
-        </TABLE>
-    </BODY>
-</HTML>
-HTML_FOOTER
-}
-
-#------------------------------------------------------------------------------
-#
-# verbose - echo to STDERR if in verbose mode
-#
-#------------------------------------------------------------------------------
-
-sub verbose
-{
-    return unless $opt_verbose;
-    print STDERR "$NAME: ", shift, "\n";
+    $_[ 0 ] =~ s/([^\w-;&])/sprintf "&#%lx;", ord( $1 )/ge;
 }
 
 #==============================================================================
@@ -704,3 +815,366 @@ sub verbose
 # End of subroutines
 #
 #==============================================================================
+
+
+#==============================================================================
+#
+# JavaScript Code - Jef Pearlman's (jef@mit.edu) Tree class
+# http://developer.netscape.com/docs/examples/dynhtml/tree.html
+#
+#==============================================================================
+
+__END__
+
+<SCRIPT LANGUAGE = "JavaScript">
+
+// Tree.js
+//
+// Javascript expandable/collapsable tree class.
+// Written by Jef Pearlman (jef@mit.edu)
+// 
+///////////////////////////////////////////////////////////////////////////////
+
+// class Tree 
+// {
+//   public: 
+//       // These functions can be used to interface with a tree. 
+//     void TreeView(params);
+//       // Constructs a TreeView. Params must be an object containing the
+//       // following properties:
+//       // id: UNIQUE id for the tree
+//       // items: Nested array of strings and arrays determining the tree 
+//       //        structure and content.
+//       // x: Optional x position for tree.
+//       // y: Optional y position for tree.
+//     int getHeight();
+//       // Returns the height of the tree, fully expanded.
+//     int getWidth();
+//       // Returns the width of the widest section of the tree, 
+//       // fully expanded.
+//     int getVisibleHeight();
+//       // Returns the height of the visible tree.
+//     int getVisibleWidth();
+//       // Returns the width of the widest visible section of the tree. 
+//     int getX();
+//       // Returns the x position of the tree. 
+//     int getY();
+//       // Returns the y position of the tree.
+//     Object getLayer();
+//       // Returns the layer object enclosing the entire tree.
+// }
+
+function TreeNode(content, enclosing, id, depth, y)
+     // Constructor for a TreeNode object, creates the appropriate layers
+     // and sets the required properties.
+{
+  this.id = id;
+  this.enclosing = enclosing;
+  this.children = new Array;
+  this.maxChild = 0;
+  this.expanded = false;
+  this.getWidth = TreeNode_getWidth;
+  this.getVisibleWidth = TreeNode_getVisibleWidth;
+  this.getHeight = TreeNode_getHeight;
+  this.getVisibleHeight = TreeNode_getVisibleHeight;
+  this.layout = TreeNode_layout;
+  this.relayout = TreeNode_relayout;
+  this.childLayer = null;
+  this.parent = this.enclosing.node;
+  this.tree = this.parent.tree;
+  this.depth = depth;
+
+  // Write out the content for this item.
+  document.write("<LAYER TOP="+y+" LEFT="+(this.depth*10)+" ID=Item"+this.id+">");
+  document.write("<LAYER ID=Buttons WIDTH=9 HEIGHT=9>");
+  document.write("<LAYER ID=Minus VISIBILITY=HIDE WIDTH=9 HEIGHT=9><IMG SRC=Tree_minus.gif WIDTH=9 HEIGHT=9></LAYER>");
+  document.write("<LAYER ID=Plus WIDTH=9 VISIBILITY=HIDE HEIGHT=9><IMG SRC=Tree_plus.gif WIDTH=9 HEIGHT=9></LAYER>");
+  document.write("<LAYER ID=Disabled VISIBILITY=INHERIT WIDTH=9 HEIGHT=9><IMG SRC=Tree_disabled.gif WIDTH=9 HEIGHT=9></LAYER>");
+  document.write("</LAYER>"); // Buttons
+  this.layer = this.enclosing.layers['Item'+this.id];
+  this.layers = this.layer.layers;
+  document.write("<LAYER ID=Content LEFT="+(this.layers['Buttons'].x+10)+">"+content+"</LAYER>");
+  document.write("</LAYER>"); // Item
+
+  // Move the buttons to the right position (centered vertically) and
+  // capture the appropriate events.
+  this.layers['Buttons'].moveTo(this.layers['Buttons'].x, this.layers['Content'].y+((this.layers['Content'].document.height-9)/2));
+  this.layers['Buttons'].layers['Plus'].captureEvents(Event.MOUSEDOWN);
+  this.layers['Buttons'].layers['Plus'].onmousedown=TreeNode_onmousedown_Plus;
+  this.layers['Buttons'].layers['Plus'].node=this;
+  this.layers['Buttons'].layers['Minus'].captureEvents(Event.MOUSEDOWN);
+  this.layers['Buttons'].layers['Minus'].onmousedown=TreeNode_onmousedown_Minus;
+  this.layers['Buttons'].layers['Minus'].node=this;
+
+  // Note the height and width;
+  this.height=this.layers['Content'].document.height;
+  this.width=this.layers['Content'].document.width + 10 + (depth*10);
+}
+
+function Tree_build(node, items, depth, nexty)
+     // Recursive function builds a tree, starting at the current node
+     // using the items in items, starting at depth depth, where nexty
+     // is where to locate the new layer to be placed correctly.
+{
+  var i;
+  var nextyChild=0;
+
+  if (node.tree.version >= 4)
+    {
+      // Create the layer for all the children.
+      document.write("<LAYER TOP="+nexty+" VISIBILITY=HIDE ID=Children>");
+      node.childLayer = node.enclosing.layers['Children'];
+      node.childLayer.node = node;
+    }
+  else
+    {
+      // For Navigator 3.0, create a nested unordered list.
+      document.write("<UL>");
+    }
+
+  for (i=0; i<items.length; i++)
+    {
+      if(typeof(items[i]) == "string")
+	{
+	  if (node.tree.version >= 4)
+	    {
+	      // Create a new node as the next child.
+	      node.children[node.maxChild] = new TreeNode(items[i], node.childLayer, node.maxChild, depth, nextyChild);
+	      nextyChild+=node.children[node.maxChild].height;
+	    }
+	  else
+	    {
+	      // Create a new item.
+	      document.write("<LI>"+items[i]);
+	    }
+	  node.maxChild++;
+	}
+      else
+	if (node.maxChild > 0)
+	  {
+	    // Build a new tree using the nested items array, placing it
+	    // under the last child created.
+	    if (node.tree.version >= 4)
+	      {
+		Tree_build(node.children[node.maxChild-1], items[i], depth+1, nextyChild);    
+		nextyChild+=node.children[node.maxChild-1].getHeight()-node.children[node.maxChild-1].height;
+		node.children[node.maxChild-1].layer.layers['Buttons'].layers['Disabled'].visibility="hide";
+		node.children[node.maxChild-1].layer.layers['Buttons'].layers['Plus'].visibility="inherit";
+	      }
+	    else
+	      Tree_build(node, items[i], depth+1, nextyChild);    
+	  }
+    }
+  
+  // End the layer or nested unordered list.
+  if (node.tree.version >= 4)
+    document.write("</LAYER>"); // childLayer
+  else
+    {
+      document.write("</UL>");
+    }
+
+}
+
+function TreeNode_onmousedown_Plus(e)
+     // Handle a mouse down on a plus (expand).
+{
+  var node=this.node;
+  var oldHeight=node.getVisibleHeight();
+  // Switch the buttons, set the current node expanded, and
+  // relayout everything below it before before displaying the node.
+  node.layers['Buttons'].layers['Minus'].visibility="inherit";
+  node.layers['Buttons'].layers['Plus'].visibility="hide";
+  node.expanded=true;
+  node.parent.relayout(node.id,node.getVisibleHeight()-oldHeight);
+  node.childLayer.visibility='inherit';
+  return false;
+}
+
+function TreeNode_onmousedown_Minus(e)
+     // Handle a mouse down on a minus (collapse).
+{
+  var node=this.node;
+  var oldHeight=node.getVisibleHeight();
+  // Switch the buttons, set the current node collapsed, and
+  // hide the node before relaying out everything below it.
+  node.layers['Buttons'].layers['Plus'].visibility="inherit";
+  node.layers['Buttons'].layers['Minus'].visibility="hide";
+  node.expanded=false;
+  node.childLayer.visibility='hide';
+  node.parent.relayout(node.id,node.getVisibleHeight()-oldHeight);  
+  return false;
+}
+
+function TreeNode_getHeight()
+     // Get the Height of the current node and it's children.
+{
+  // Recursively add heights.
+  var h=0, i;
+  for (i = 0; i < this.maxChild; i++)
+    h += this.children[i].getHeight();
+  h += this.height;
+  return h;
+}
+
+function TreeNode_getVisibleHeight()
+     // Get the Height of the current node and it's visible children.
+{
+  // Recursively add heights. Only recurse if expanded.
+  var h=0, i;
+  if (this.expanded)
+    for (i = 0; i < this.maxChild; i++)
+      h += this.children[i].getVisibleHeight();
+  h += this.height;
+  return h;
+}
+
+function TreeNode_getWidth()
+     // Get the max Width of the current node and it's children.
+{
+  // Find the max width by recursively comparing.
+  var w=0, i;
+  for (i=0; i<this.maxChild; i++)
+    if (this.children[i].getWidth() > w)
+      w = this.children[i].getWidth();
+  if (this.width > w)
+    return this.width;
+  return w;
+}
+
+function TreeNode_getVisibleWidth()
+     // Get the max Width of the current node and it's visible children.
+{
+  // Find the max width by recursively comparing. Only recurse if expanded.
+  var w=0, i;
+  if (this.expanded)
+    for (i=0; i<this.maxChild; i++)
+      if (this.children[i].getVisibleWidth() > w)
+	w = this.children[i].getVisibleWidth();
+  if (this.width > w)
+    return this.width;
+  return w;
+}
+
+function TreeView_getX()
+     // Get the x location of the main tree layer.
+{
+  // Return the x property of the main layer.
+  return document.layers[this.id+"Tree"].x;
+}
+
+function TreeView_getY()
+     // Get the y location of the main tree layer.
+{
+  // Return the y property of the main layer.
+  return document.layers[this.id+"Tree"].y;
+}
+
+function getLayer()
+     // Get the main layer object.
+{
+  // Returnt he main layer.
+  return document.layers[this.id+"Tree"];
+}
+
+function TreeNode_layout()
+     // Layout the entire tree from scratch, recursively.
+{
+  var nexty=0, i;
+  // Set the layer visible if expanded, hidden if not.
+  if (this.expanded)
+    this.childLayer.visibility="inherit";
+  else
+    if (this.childLayer != null)
+      this.childLayer.visibility="hide";
+  // If there is a child layer, move it to the appropriate position, and
+  // move the children, laying them each out in turn.
+  if (this.childLayer != null)
+    {
+      this.childLayer.moveTo(0, this.layer.y+this.height);
+      for (i=0; i<this.maxChild; i++)
+	{
+	  this.children[i].layer.moveTo((this.depth+1)*10, nexty);
+	  this.children[i].layout();
+	  nexty+=this.children[i].height;
+	}
+    }
+}
+
+function TreeNode_relayout(id, movey)
+{
+  // Move all children physically below the current child number id of
+  // the current node. Much faster than doing a layout() each time.
+
+  // Move all children _after_ this child.
+  for (id++;id<this.maxChild; id++)
+    {
+      this.children[id].layer.moveBy(0, movey);
+      if (this.children[id].childLayer != null)
+	this.children[id].childLayer.moveBy(0, movey);
+    }
+  // If there is a parent, move all of its children below this node,
+  // recursively.
+  if (this.parent != null)
+    this.parent.relayout(this.id, movey);
+}
+
+function Tree(param)
+     // Instantiates a tree and displays it, using the items, id, and optional
+     // x and y in param.
+{
+  // Set up member variables and functions. Also duplicate important TreeNode
+  // member variables so this can serve as a TreeNode (vaguely like 
+  // subclassing)
+  this.version=eval(navigator.appVersion.charAt(0));
+  this.id = param.id;
+  this.children = new Array;
+  this.maxChild = 0;
+  this.expanded = true;
+  this.layout = TreeNode_layout;
+  this.relayout = TreeNode_relayout;
+  this.getX = TreeView_getX;
+  this.getY = TreeView_getY;
+  this.getWidth = TreeNode_getWidth;
+  this.getVisibleWidth = TreeNode_getVisibleWidth;
+  this.getHeight = TreeNode_getHeight;
+  this.getVisibleHeight = TreeNode_getVisibleHeight;
+  this.depth = -1;
+  this.height = 0;
+  this.width = 0;
+  this.tree = this;
+  var items = eval(param.items);
+
+  var left = "";
+  var top = "";
+  if (param.x != null && param.x != "")
+    left += " LEFT="+param.x;
+  if (param.y != null && param.y != "")
+    top += " TOP="+param.y;
+
+
+  if (this.version >= 4)
+    {
+      // Create a surrounding layer to guage size and control the entire tree.
+      // Also create a secondary internal layer so that the code can treat
+      // the tree itself correctly as a node (must have an enclosing layer
+      // and a children layer).
+      document.write("<LAYER VISIBILITY=HIDE ID="+this.id+"Tree"+left+top+">");
+      document.write("<LAYER ID=mainLayer>");
+      this.enclosing = document.layers[this.id+"Tree"].layers['mainLayer'];
+      this.layers = this.enclosing.layers;
+      this.layer = this.enclosing;
+      this.enclosing.node = this;
+    } 
+
+  Tree_build(this, items, 0, 0); // Build the tree.
+  
+  if (this.version >= 4)
+    {
+      // Finish output, record size;
+      document.write("</LAYER></LAYER>");
+      this.layout();
+      document.layers[this.id+"Tree"].visibility="inherit";
+    }
+}
+</SCRIPT>
