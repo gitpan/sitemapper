@@ -10,7 +10,8 @@ sitemapper - script for generating site maps
 
 =head1 SYNOPSIS
 
-    sitemapper [ -verbose ] [ -help ] [-doc ] [ -depth <depth> ] [ -proxy <proxy URL> ] [ -format <html|js> ] [ -title <page title> ] -site <base URL>
+    sitemapper [ -verbose ] [ -help ] [-doc ] [ -authen <none|cl> ] [ -depth
+    <depth> ] [ -proxy <proxy URL> ] [ -format <ul|dl|js> ] [ -title <page title> ] -site <base URL> 
 
 =cut
 
@@ -34,9 +35,11 @@ are linked from "higher" up pages may appear in the "wrong place" in the tree,
 than they "belong".
 
 The L<OPTIONS/-format> option can be used to specify alternative options for
-formating the site map. Currently the options are html (as described above -
-the default) and js, which uses Jef Pearlman's (jef@mit.edu) javascript Tree
-class to display the site map as a collapsable tree.
+formating the site map. Currently the options are ul (as described above -
+the default) js, which uses Jef Pearlman's (jef@mit.edu) javascript Tree
+class to display the site map as a collapsable tree, and dl, which also uses a
+bulleted list, but has a definition list with the page title and the relative
+URL for each page in each bullet.
 
 =head1 OPTIONS
 
@@ -57,12 +60,46 @@ Specify an HTTP proxy to use.
 
 =item -format
 
-Format for the site map. Current options are html and js. html is
-the default.
+Option for specifying the for the site map. Possible values are:
+
+=over 4
+
+=item ul
+
+Plain old HTML bulleted list.
+
+=item dl
+
+Plain old HTML, with each bulleted list item as a definition list, containing
+the page title, and the relative URL path.
+
+=item js
+
+A collapsable DHTML tree, genrated using Jef Pearlman's (jef@mit.edu)
+javascript Tree class.
+
+=back
 
 =item -title
 
 Option to specify a page title for the site map.
+
+=item -authen
+
+Option to specify behaviour for C<Unauthorized> HTTP responses (C<401>).
+Possible values are:
+
+=over 4
+
+=item prompt
+
+Prompt for unsername / password to be typed for each unauthorized page
+
+=item none
+
+Treat unauthorized pages as inaccessible.
+
+=back
 
 =item -help
 
@@ -73,10 +110,6 @@ description of purpose, and supported command-line switches.
 
 Display the full documentation for the script,
 generated from the embedded pod format doc.
-
-=item -verbose
-
-Enable verbose reporting as the script runs.
 
 =item -verbose
 
@@ -125,6 +158,7 @@ use vars qw(
     $VERSION 
     $CONTACT 
     $HELP 
+    $CHECK_OPTION
     $DOC 
     $USAGE
     $VERBOSE 
@@ -140,6 +174,7 @@ use vars qw (
     $opt_version
     $opt_help
     $opt_doc
+    $opt_authen
     $opt_depth
     $opt_title
     $opt_format
@@ -196,7 +231,7 @@ it under the same terms as Perl itself.
 
 $CONTACT = 'wrigley@cre.canon.co.uk';
 
-$VERSION = '1.004';
+$VERSION = '1.005';
 
 $VERBOSE = sub {
     print STDERR shift, "\n" if $opt_verbose;
@@ -229,6 +264,21 @@ $HELP = sub {
         exitval => 0,
         verbose => 1,
     );
+};
+
+$CHECK_OPTION = sub {
+    my $option_name     = shift;
+    my $options         = shift;
+    my $default         = shift;
+
+    eval "\$opt_$option_name ||= '$default'";
+    my $regex = '(' . join( '|', @$options ) . ')' ;
+    eval <<USAGE;
+\$USAGE->( '-$option_name option must be one of $regex' )
+    unless \$opt_$option_name =~ /^$regex\$/i
+;
+USAGE
+    eval "\$opt_$option_name = lc( \$opt_$option_name )";
 };
 
 $WHEN = time2str( "on %A the %o of %B %Y at %r", time );
@@ -266,6 +316,7 @@ FOOTER
     doc 
     verbose 
     version 
+    authen=s
     depth=i
     site=s
     output=s
@@ -277,12 +328,10 @@ FOOTER
 &$HELP if $opt_help;
 &$DOC if $opt_doc;
 print "$VERSION\n" and exit( 0 ) if $opt_version;
-&$USAGE( '-sites argument is required' ) unless $opt_site;
-$opt_format ||= 'html';
-&$USAGE( '-format option must be one of (js|html)' )
-    unless $opt_format =~ /^(html|js)$/i
-;
-$opt_format = lc( $opt_format );
+$USAGE->( '-sites argument is required' ) unless $opt_site;
+
+$CHECK_OPTION->( 'format', [ 'js', 'dl', 'ul' ], 'ul' );
+$CHECK_OPTION->( 'authen', [ 'none', 'prompt' ], 'none' );
 
 #==============================================================================
 #
@@ -299,22 +348,26 @@ $opt_format = lc( $opt_format );
 
 my %print_start_all_lists = (
     'js'        => sub { print { shift } "\t\"[\" +\n" },
-    'html'      => sub { print { shift } '<UL>' },
+    'ul'        => sub { print { shift } '<UL>' },
+    'dl'        => sub { print { shift } '<UL>' },
 );
 
 my %print_end_all_lists = (
     'js'        => sub { print { shift } "\t\"]\" +\n" },
-    'html'      => sub { print { shift } '</UL>' },
+    'ul'        => sub { print { shift } '</UL>' },
+    'dl'        => sub { print { shift } '</UL>' },
 );
 
 my %print_start_list = (
     'js'        => sub { print { shift } "\t\"[\" +\n" },
-    'html'      => sub { print { shift } '<UL>' },
+    'ul'        => sub { print { shift } '<UL>' },
+    'dl'        => sub { print { shift } '<UL>' },
 );
 
 my %print_end_list = (
     'js'        => sub { print { shift } "\t\"],\" +\n" },
-    'html'      => sub { print { shift } '</UL>' },
+    'ul'        => sub { print { shift } '</UL>' },
+    'dl'        => sub { print { shift } '</UL>' },
 );
 
 my %print_node = (
@@ -326,7 +379,7 @@ my %print_node = (
         &entify( '\'"', $title );
         print $fh "\t\"'<A HREF = $url>$title</A>',\" +\n";
     },
-    'html'      => sub {
+    'dl'        => sub {
         my $fh          = shift;
         my $url         = shift;
         my $title       = shift;
@@ -340,6 +393,19 @@ my %print_node = (
         <DT><A HREF = "$url"><B>$title</B></A>
         <DD><A HREF = "$url">$path</A>
     </DL>
+HTML_NODE
+    },
+    'ul'        => sub {
+        my $fh          = shift;
+        my $url         = shift;
+        my $title       = shift;
+
+        my ( $path );
+        ( $path = $url ) =~ s!^$opt_site!!;
+
+        print $fh <<HTML_NODE;
+<LI>
+    <A HREF = "$url"><B>$title</B></A>
 HTML_NODE
     },
 );
@@ -361,19 +427,17 @@ my %print_page_start = (
 JS
         ;
     },
-    'html'      => sub {
-        my $fh      = shift;
-        my $title   = shift;
-
-        print $fh $HEADER->( $title );
+    'dl'        => sub {
+        print { shift } $HEADER->( shift );
+    },
+    'ul'        => sub {
+        print { shift } $HEADER->( shift );
     },
 );
 
 my %print_page_end = (
     'js'        => sub {
-        my $fh = shift;
-
-        print $fh <<JAVASCRIPT_FOOTER;
+        print { shift } <<JAVASCRIPT_FOOTER;
     ""
 });
 </SCRIPT>
@@ -386,10 +450,11 @@ my %print_page_end = (
 </HTML>
 JAVASCRIPT_FOOTER
     },
-    'html'      => sub {
-        my $fh = shift;
-
-        print $fh "$FOOTER</BODY></HTML>";
+    'dl'        => sub {
+        print { shift } "$FOOTER</BODY></HTML>";
+    },
+    'ul'        => sub {
+        print { shift } "$FOOTER</BODY></HTML>";
     },
 );
 
@@ -408,7 +473,7 @@ $|++;
 #------------------------------------------------------------------------------
 
 my $MD5_Obj = new MD5;
-my $Robot = new LWP::UserAgent;
+my $Robot = &get_agent;
 
 #------------------------------------------------------------------------------
 #
@@ -418,13 +483,13 @@ my $Robot = new LWP::UserAgent;
 
 if ( defined( $opt_proxy ) )
 {
-    &$VERBOSE( "proxy = $opt_proxy ..." );
+    $VERBOSE->( "proxy = $opt_proxy ..." );
     $Robot->proxy( [ 'http' ], $opt_proxy );
 }
 elsif ( defined( $ENV{ http_proxy } ) )
 {
-    &$VERBOSE( "getting proxy from environment ..." );
-    &$VERBOSE( "proxy = $ENV{ http_proxy } ..." );
+    $VERBOSE->( "getting proxy from environment ..." );
+    $VERBOSE->( "proxy = $ENV{ http_proxy } ..." );
     $Robot->env_proxy;
 }
 
@@ -515,6 +580,47 @@ $print_page_end{ $opt_format }->( $fh );
 
 #------------------------------------------------------------------------------
 #
+# get_agent - get LWP::Agent, or specialization thereof if allowing
+# authenication
+#
+#------------------------------------------------------------------------------
+
+sub get_agent
+{
+    if ( $opt_authen eq 'prompt' )
+    {
+        package MyAgent;
+
+        use vars qw( @ISA );
+
+        @ISA = qw( LWP::UserAgent );
+
+        sub get_basic_credentials
+        {
+            my $self    = shift;
+            my $realm   = shift;
+            my $uri     = shift;
+
+            my $netloc = $uri->netloc;
+            print "Enter username for $realm at $netloc: ";
+            my $user = <STDIN>;
+            chomp($user);
+            return (undef, undef) unless length $user;
+            print "Password: ";
+            system("stty -echo");
+            my $password = <STDIN>;
+            system("stty echo");
+            print "\n";  # because we disabled echo
+            chomp($password);
+            return ($user, $password);
+        }
+        return new MyAgent;
+    }
+    return new LWP::UserAgent;
+}
+
+#------------------------------------------------------------------------------
+#
 # hexhash - get an MD5 hex hash value for the contents of this URL
 #
 #------------------------------------------------------------------------------
@@ -541,7 +647,7 @@ sub get_links
 
     my ( @links );
 
-    &$VERBOSE( "extracting links from $url ..." );
+    $VERBOSE->( "extracting links from $url ..." );
 
     my @frame_links = &expand_frameset( $url, $html, $base );
     return @frame_links if @frame_links;
@@ -589,7 +695,7 @@ sub get_links
             return if $UrlSeen{ $link };
             $UrlSeen{ $link }++;
 
-            &$VERBOSE( "adding $link ..." );
+            $VERBOSE->( "adding $link ..." );
 
             push( @links, $link );
         },
@@ -668,7 +774,7 @@ sub get_response
 {
     my $url = shift;
 
-    &$VERBOSE( "getting $url ..." );
+    $VERBOSE->( "getting $url ..." );
 
     my $response = $Robot->request( new HTTP::Request( 'GET', $url ) );
 
@@ -678,7 +784,7 @@ sub get_response
     }
     else
     {
-        &$VERBOSE( "failed to get $url ..." );
+        $VERBOSE->( "failed to get $url ..." );
         return undef;
     }
 }
@@ -749,7 +855,7 @@ sub get_content_and_base
     my $response = &get_response( $url );
     unless ( defined $response )
     {
-        &$VERBOSE( "failed to get $url ..." );
+        $VERBOSE->( "failed to get $url ..." );
         &delete_node( $url );
         return ( undef, undef ) 
     }
@@ -758,7 +864,7 @@ sub get_content_and_base
     my $hash = &hexhash( $content );
     if ( $MD5Hash{ $hash } )
     {
-        &$VERBOSE( "$url is identical to $MD5Hash{ $hash } ..." );
+        $VERBOSE->( "$url is identical to $MD5Hash{ $hash } ..." );
         &delete_node( $url );
         return ( undef, undef );
     }
@@ -780,7 +886,7 @@ sub delete_node
 
     return unless defined( $parent );
 
-    &$VERBOSE( "deleting $url for its parent, $parent->{ url } ..." );
+    $VERBOSE->( "deleting $url for its parent, $parent->{ url } ..." );
     delete( $parent->{ 'children' }{ $url } );
 }
 
