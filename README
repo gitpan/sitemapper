@@ -1,0 +1,70 @@
+Sitemapper Version 1.000
+========================
+
+Description
+-----------
+
+Sitemapper is a simple perl program which generated an HTML site map from a
+given URL. It does this by traversing the site, getting the home page,
+extracting links from it, getting all the pages linked, and so on. The sitemap
+generated is an HTML bulleted list. The first level indented list item is the
+home page; the next level are all the pages linked from the home page. The next
+level are all the pages linked from each of these pages, and so on. If a page
+is linked from more than one page, it is show in the "highest" place in the
+tree it is linked from.
+
+Sitemapper should correctly deal with framesets, client side image maps,  and
+<BASE> tags. It ignores all "off site" links - i.e. all absolute URLs that do
+not start with the original "base" URL of the home page.
+
+Usage
+-----
+
+To use sitemapper, just type:
+
+./sitemapper -site http://www.mysite.com/
+
+to get output to stdout, or
+
+./sitemapper -site http://www.mysite.com/ -output mysitemap.html
+
+to output to a file. Type
+
+./sitemapper -help 
+
+to get full usage instructions, or
+
+.sitemapper -doc
+
+to output the pod documentation
+
+Example
+-------
+
+example.html contains an example of sitemapper output, for the Canon Research
+Europe Ltd Perl Pages (http://www.cre.canon.co.uk/perl/); i.e. by running:
+
+./sitemapper -o example.html -site http://www.cre.canon.co.uk/
+
+CPAN Modules
+------------
+
+Sitemapper uses the following CPAN modules, that need to be installed before it
+will work:
+
+Getopt::Long
+IO::File
+LWP::UserAgent
+HTML::LinkExtor
+URI::URL
+Pod::Text
+MD5
+Date::Format
+
+See http://www.perl.com/CPAN/ for details of how to download / install these
+modules.
+
+Bugs
+----
+
+Please send any bugs / comments / suggestions to wrigley@cre.canon.co.uk
