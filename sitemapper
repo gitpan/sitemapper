@@ -1,6 +1,4 @@
-eval 'exec perl -S $0 "$@"'
-    if $runnning_under_some_shell
-;
+#!/apps/perl5/bin/perl -w
 
 #-----------------------------------------------------------------------
 
@@ -107,7 +105,7 @@ use Date::Format;
 
 use vars qw( $VERSION );
 
-$VERSION = '1.000';
+$VERSION = '1.001';
 
 #------------------------------------------------------------------------------
 #
@@ -665,7 +663,7 @@ HTML_FOOTER
 
 sub usage
 {
-    die <<USAGE;
+    print STDERR <<USAGE;
 
 $Name version $VERSION
 
@@ -681,6 +679,8 @@ options :
     -help               OPTIONAL        # Print this message
     -doc                OPTIONAL        # Print POD documentation
 USAGE
+
+    exit( 0 );
 }
 
 #------------------------------------------------------------------------------
