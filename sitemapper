@@ -196,7 +196,7 @@ it under the same terms as Perl itself.
 
 $CONTACT = 'wrigley@cre.canon.co.uk';
 
-$VERSION = '1.003';
+$VERSION = '1.004';
 
 $VERBOSE = sub {
     print STDERR shift, "\n" if $opt_verbose;
@@ -297,13 +297,23 @@ $opt_format = lc( $opt_format );
 #
 #------------------------------------------------------------------------------
 
+my %print_start_all_lists = (
+    'js'        => sub { print { shift } "\t\"[\" +\n" },
+    'html'      => sub { print { shift } '<UL>' },
+);
+
+my %print_end_all_lists = (
+    'js'        => sub { print { shift } "\t\"]\" +\n" },
+    'html'      => sub { print { shift } '</UL>' },
+);
+
 my %print_start_list = (
-    'js'        => sub { print { shift } '[' },
+    'js'        => sub { print { shift } "\t\"[\" +\n" },
     'html'      => sub { print { shift } '<UL>' },
 );
 
 my %print_end_list = (
-    'js'        => sub { print { shift } ']' },
+    'js'        => sub { print { shift } "\t\"],\" +\n" },
     'html'      => sub { print { shift } '</UL>' },
 );
 
@@ -313,7 +323,8 @@ my %print_node = (
         my $url         = shift;
         my $title       = shift;
 
-        print $fh "'<A HREF = $url>$title</A>',";
+        &entify( '\'"', $title );
+        print $fh "\t\"'<A HREF = $url>$title</A>',\" +\n";
     },
     'html'      => sub {
         my $fh          = shift;
@@ -340,9 +351,14 @@ my %print_page_start = (
 
         print $fh $HEADER->( $title );
         print $fh join( '', <DATA> );
-        print $fh 
-            "<SCRIPT LANGUAGE = \"JavaScript\">\n",
-            "firstTree = new Tree ( { id:\"sitemap\", items:\""
+        print $fh <<JS;
+<SCRIPT LANGUAGE = "JavaScript">
+    firstTree = new Tree ( 
+        { 
+            id:
+                "sitemap", 
+            items:
+JS
         ;
     },
     'html'      => sub {
@@ -357,8 +373,9 @@ my %print_page_end = (
     'js'        => sub {
         my $fh = shift;
 
-        print $fh "\"});\n";
         print $fh <<JAVASCRIPT_FOOTER;
+    ""
+});
 </SCRIPT>
 <LAYER>$FOOTER</LAYER>
 <SCRIPT LANGUAGE = "JavaScript">
@@ -472,9 +489,9 @@ $print_page_start{ $opt_format }->(
 #
 #------------------------------------------------------------------------------
 
-$print_start_list{ $opt_format }->( $fh );
+$print_start_all_lists{ $opt_format }->( $fh );
 print_site_tree( $fh, $root );
-$print_end_list{ $opt_format }->( $fh );
+$print_end_all_lists{ $opt_format }->( $fh );
 
 #------------------------------------------------------------------------------
 #
@@ -784,7 +801,6 @@ sub print_site_tree
     my $children        = $node->{ 'children' };
 
     $title =~ s!\r!!g; # some wierd Windows pages have \r characters
-    &entify( $title );
 
     $print_node{ $opt_format }->( $fh, $url, $title );
 
@@ -807,7 +823,8 @@ sub print_site_tree
 
 sub entify
 {
-    $_[ 0 ] =~ s/([^\w-;&])/sprintf "&#%lx;", ord( $1 )/ge;
+    my $chars = shift;
+    $_[ 0 ] =~ s/([$chars])/sprintf "&#%lx;", ord( $1 )/ge;
 }
 
 #==============================================================================
