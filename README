@@ -78,10 +78,10 @@ Tree_disabled.gif
 Tree_minus.gif
 Tree_plus.gif
 
-Finally, a "fuller" plain old HTML version can be generated using the -format
-dl option; for example:
+Finally, a plain text version can be generated using the -format text
+option; for example:
 
-./sitemapper -o dl_example.html -site http://www.cre.canon.co.uk/ -format dl
+./sitemapper -o example.txt -site http://www.cre.canon.co.uk/ -format text
 
 CPAN Modules
 ------------
@@ -93,6 +93,7 @@ Getopt::Long
 IO::File
 LWP::UserAgent
 HTML::LinkExtor
+HTML::Entities
 URI::URL
 Pod::Text
 MD5

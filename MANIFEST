@@ -5,8 +5,11 @@ README
 Tree_disabled.gif
 Tree_minus.gif
 Tree_plus.gif
+access.conf
 dl_example.html
 example.html
+example.txt
+htpasswd
 js_example.html
 sitemapper
 test.pl

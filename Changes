@@ -22,3 +22,9 @@ Revision history for Perl extension sitemapper.
         - -authen option allows sitemapper to prompt for username / password fo
           pages which are access controlled
         - more formatting options (dl / ul)  
+
+1.006 Wed Jul 22 12:15:43 BST 1998
+        - -authen now has apache option. Used with -access option, this can be
+          used for apache style configuration of access control
+        - yet more formatting options (html / js/ text)
+        - -abstract option for auto-generating a short abstract

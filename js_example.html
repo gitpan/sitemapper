@@ -156,6 +156,15 @@ function Tree_build(node, items, depth, nexty)
 
 }
 
+function Reposition_footer( )
+{
+    var footer = document.layers[ "Footer" ];
+    if ( footer != null )
+    {
+        footer.moveTo( 0, firstTree.getY() + firstTree.getVisibleHeight() );
+    }
+}
+
 function TreeNode_onmousedown_Plus(e)
      // Handle a mouse down on a plus (expand).
 {
@@ -168,6 +177,7 @@ function TreeNode_onmousedown_Plus(e)
   node.expanded=true;
   node.parent.relayout(node.id,node.getVisibleHeight()-oldHeight);
   node.childLayer.visibility='inherit';
+  Reposition_footer();
   return false;
 }
 
@@ -183,6 +193,7 @@ function TreeNode_onmousedown_Minus(e)
   node.expanded=false;
   node.childLayer.visibility='hide';
   node.parent.relayout(node.id,node.getVisibleHeight()-oldHeight);  
+  Reposition_footer();
   return false;
 }
 
@@ -440,7 +451,7 @@ function Tree(param)
     ""
 });
 </SCRIPT>
-<LAYER><HR NOSHADE>
+<LAYER ID = "Footer"><HR NOSHADE>
 <TABLE WIDTH = "100%">
     <TR>
         <TD VALIGN = "TOP" ALIGN = "LEFT">
@@ -449,12 +460,11 @@ function Tree(param)
             <A HREF = "mailto:wrigley@cre.canon.co.uk">wrigley@cre.canon.co.uk</A>
     <TR>
         <TD COLSPAN = 2 VALIGN = "TOP" ALIGN = "LEFT">
-            Generated on Monday the 20th of July 1998 at 12:41:12 PM
+            Generated on Monday the 20th of July 1998 at 05:02:43 PM
 </TABLE>
 </LAYER>
 <SCRIPT LANGUAGE = "JavaScript">
-    var layer = document.layers[ document.layers.length - 1 ]; 
-    layer.moveTo( 0, firstTree.getY() + firstTree.getHeight() );
+    Reposition_footer();
 </SCRIPT>
 </BODY>
 </HTML>
