@@ -6,7 +6,7 @@ Makefile.PL
 README
 sitemapper.pl
 test.pl
-example.html
-example.js.html
-example.txt
-example.xml
+examples/example.html
+examples/example.js.html
+examples/example.txt
+examples/example.xml

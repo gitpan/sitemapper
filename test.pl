@@ -71,7 +71,10 @@ my $sitemap = new WWW::Sitemap
     ROOT                => $url,
     DEPTH               => $depth,
     SUMMARY_LENGTH      => 200,
+    VERBOSE             => 1,
 ;
+
+$sitemap->generate();
 
 ok( defined( $sitemap ) );
 

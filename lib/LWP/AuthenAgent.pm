@@ -32,8 +32,8 @@ LWP::AuthenAgent inherits all the methods available in LWP::UserAgent.
 
 =head1 SEE ALSO
 
-LWP::UserAgent (L<LWP::UserAgent>),
-Term::ReadKey (L<Term::ReadKey>)
+    LWP::UserAgent
+    Term::ReadKey
 
 =head1 AUTHOR
 

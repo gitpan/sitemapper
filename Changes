@@ -37,5 +37,33 @@ Revision history for Perl extension sitemapper.
         - WWW::Sitemap supports a traverse method, so that user defined output
           formats can be supported
 
-1,008 Wed Mar 31 19:39:47 BST 1999
+1.008 Wed Mar 31 19:39:47 BST 1999
         - Dependency on WWW::Robot version 1.017 made explicit in Makefile.PL
+
+1.009 Fri Apr 9 09:47:58 BST 1999
+        - Pod changed to include sections required for CPAN scripts
+        - script uploaded seperately to CPAN
+
+1.010 Tue Apr 13 10:27:06 BST 1999
+        - Changed link regex in Sitemap.pm to m{(?:/|\.s?html?)$}
+
+1.011 Tue Jun 1 18:04:15 BST 1999
+        - WWW::Sitemap interface changed - generate() method explicitly called,
+          rather than being done from the constructor
+        - url_callback method added for bespoke verbose messages, status, etc.
+
+1.012 Fri Jun 4 11:44:17 BST 1999
+        - Tk interface written by Nicholas Marshall <nmarshall@pbs.org>
+          incorporated in sitemapper (invoked with the -gui option
+
+1.013 Fri Jun 4 18:45:02 BST 1999
+        - Status text box displays URLs traversed
+        - Exit dialog after sitemap generated
+
+1.014 Mon Jun 28 14:15:33 BST 1999
+        - depth argument no longer compulsary in GUI version
+        - bug with $opt_summary being set to 1 in GUI version fixed
+
+1.015 Mon Jun 28 14:17:09 BST 1999
+        - -agent option added
+        - default file extension and file lists dependent on format type

@@ -22,6 +22,17 @@ WWW::Sitemap - functions for generating a site map for a given site URL.
         ROOT        => 'http://www.my.com/'
     );
 
+    $sitemap->url_callback(
+        sub {
+            my ( $url, $depth, $title, $summary ) = @_;
+            print STDERR "URL: $url\n";
+            print STDERR "DEPTH: $depth\n";
+            print STDERR "TITLE: $title\n";
+            print STDERR "SUMMARY: $summary\n";
+            print STDERR "\n";
+        }
+    );
+    $sitemap->generate();
     $sitemap->option( 'VERBOSE' => 1 );
     my $len = $sitemap->option( 'SUMMARY_LENGTH' );
 
@@ -42,15 +53,15 @@ WWW::Sitemap - functions for generating a site map for a given site URL.
             my ( $sitemap, $url, $depth, $flag ) = @_;
             if ( $flag == 0 )
             {
-                // do something at the start of a list of sub-pages ...
+                # do something at the start of a list of sub-pages ...
             }
             elsif( $flag == 1 )
             {
-                // do something for each page ...
+                # do something for each page ...
             }
             elsif( $flag == 2 )
             {
-                // do something at the end of a list of sub-pages ...
+                # do something at the end of a list of sub-pages ...
             }
         }
     )
@@ -65,13 +76,11 @@ urls. It is also possible to access the title of each url, and a summary
 generated from each url. The depth of each url can also be accessed; the depth
 is the minimum number of links from the root URL to that page.
 
-=head1 METHODS
+=head1 CONSTRUCTOR
 
-=over 4
+=head2 WWW::Sitemap->new [ $option => $value ] ...
 
-=item WWW::Sitemap->new [ $option => $value ] ...
-
-Constructor. Possible option are:
+Possible option are:
 
 =over 4
 
@@ -101,16 +110,91 @@ Maximum depth of traversal.
 Root URL of the site for which the sitemap is being created. This option is
 required.
 
-=back
+    my $sitemap = new WWW::Sitemap(
+        EMAIL       => 'your@email.address',
+        USERAGENT   => $ua,
+        ROOT        => 'http://www.my.com/'
+    );
 
-=item traverse( \&callback )
+=head1 METHODS
 
-sub callback
-{
-    my( $sitemap, $url, $depth, $flag ) = @_;
+=head2 generate( )
 
-    # ...
-}
+Method for generating the sitemap, based on the constructor options.
+
+    $sitemap->generate();
+
+=head2 url_callback( sub { ... } )
+
+This method allows you to define a callback that will be invoked on every URL
+that is traversed while generating the sitemap. This is basically to allow
+bespoke verbose reporting. The callback should be of the form:
+
+    sub {
+        my ( $url, $depth, $title, $summary ) = @_;
+
+        # do something ...
+
+    }
+
+=head2 option( $option [ => $value ] )
+
+Iterface to get / set options after object construction.
+
+    $sitemap->option( 'VERBOSE' => 1 );
+    my $len = $sitemap->option( 'SUMMARY_LENGTH' );
+
+=head2 root()
+
+returns the root URL for the site.
+
+    my $root = $sitemap->root();
+
+=head2 urls()
+
+Returns a list of all the URLs on the sitemap.
+
+    for my $url ( $sitemap->urls() )
+    {
+        # do something ...
+    }
+
+=head2 is_internal_url( $url )
+
+Returns 1 if $url is an internal URL (i.e. if C<$url =~ /^$root/>.
+
+    if ( $sitemap->is_internal_url( $url ) )
+    {
+        # do something ...
+    }
+
+=head2 links( $url )
+
+Returns a list of all the links from a given URL in the site map.
+
+    my @links = $sitemap->links( $url );
+
+=head2 title( $url )
+
+Returns the title of the URL.
+
+    my $title = $sitemap->title( $url );
+
+=head2 summary( $url )
+
+Returns a summary of the URL - either from the C<<META NAME=DESCRIPTION>> tag
+or generated automatically using HTML::Summary.
+
+    my $summary = $sitemap->summary( $url );
+    
+=head2 depth( $url )
+
+Returns the minimum number of links to traverse from the root URL of the site
+to this URL.
+
+    my $depth = $sitemap->depth( $url );
+
+=head2 traverse( \&callback )
 
 The travese method traverses the sitemap, starting at the root node, and
 visiting each URL in the order that they would be displayed in a sequential
@@ -136,53 +220,29 @@ After each set of daughter URLs of a given URL.
 See the sitemapper.pl script distributed with this module for an example of the
 use of the traverse method.
 
-=item option( $option [, $value ] )
-
-Iterface to get / set options after object construction.
-
-=item root()
-
-returns the root URL for the site.
-
-=item urls()
-
-Returns a list of all the URLs on the sitemap.
-
-=item links( $url )
-
-Returns a list of all the links from a given URL in the site map.
-
-=item is_internal_link( $url )
-
-Returns 1 if $url is an internal link for the site - 0 otherwise.
-
-=item depth( $url )
-
-Returns the minimum number of links to traverse from the root URL of the site
-to this URL.
-
-=item title( $url )
-
-Returns the title of the URL.
-
-=item summary( $url )
-
-Returns a summary of the URL - either from the <META NAME=DESCRIPTION> tag or
-generated automatically using HTML::Summary.
-
-=back
+    $sitemap->traverse(
+        sub {
+            my ( $sitemap, $url, $depth, $flag ) = @_;
+            if ( $flag == 0 )
+            {
+                # do something at the start of a list of sub-pages ...
+            }
+            elsif( $flag == 1 )
+            {
+                # do something for each page ...
+            }
+            elsif( $flag == 2 )
+            {
+                # do something at the end of a list of sub-pages ...
+            }
+        }
+    );
 
 =head1 SEE ALSO
 
-=over 4
-
-LWP::UserAgent (L<LWP::UserAgent>),
-HTML::Summary (L<HTML::Summary>),
-WWW::Robot (L<WWW::Robot>)
-
-=back
-
-=head1 KNOWN BUGS / RESTRICTIONS
+    LWP::UserAgent
+    HTML::Summary
+    WWW::Robot
 
 =head1 AUTHOR
 
@@ -229,7 +289,7 @@ use Digest::MD5 qw( md5_hex );
 
 use vars qw( $VERSION );
 
-$VERSION = '0.001';
+$VERSION = '0.002';
 
 #==============================================================================
 #
@@ -394,6 +454,176 @@ sub option
 
 #------------------------------------------------------------------------------
 #
+# url_callback - specify a callback for each URL visited in generating the
+# sitemap. This is basically to allow some status output for traversing big
+# sites
+#
+#------------------------------------------------------------------------------
+
+sub url_callback
+{
+    my $self = shift;
+    my $callback = shift;
+
+    return unless ref( $callback ) eq 'CODE';
+    $self->{ 'url-callback' } = $callback;
+}
+
+#------------------------------------------------------------------------------
+#
+# generate - generate the sitemap
+#
+#------------------------------------------------------------------------------
+
+sub generate
+{
+    my $self    = shift;
+
+    # Create HTML::Summary
+
+    $self->{ 'summarizer' } = 
+        new HTML::Summary LENGTH => $self->{ 'SUMMARY_LENGTH' }
+    ;
+
+    # Create WWW::Robot
+
+    $self->{ 'robot' } = new WWW::Robot(
+        'NAME'                  => 'WWW::Sitemap',
+        'VERSION'               => $VERSION,
+        'EMAIL'                 => $self->{ EMAIL },
+        'TRAVERSAL'             => 'breadth',
+        'USERAGENT'             => $self->{ USERAGENT },
+        'CHECK_MIME_TYPES'      => 0,
+        'VERBOSE'               => $self->{ VERBOSE } >= 2 ? 1 : 0,
+    );
+
+    $self->{ 'robot' }->addHook( 
+        'invoke-on-get-error', 
+        sub {
+            my( $robot, $hook, $url, $response, $structure ) = @_;
+            $self->{ 'urls' }{ $url }++;
+            $self->{ 'title' }{ $url } = 'Error ' . $response->code();
+            $self->{ 'summary' }{ $url } = $response->message();
+        }
+    );
+
+    $self->{ 'robot' }->addHook( 
+        'invoke-on-contents', 
+        sub {
+            my( $robot, $hook, $url, $response, $structure ) = @_;
+            my $contents = $response->content();
+            my $MD5_digest = md5_hex( $contents );
+            if ( exists( $self->{ 'MD5_digest' }{ $MD5_digest } ) )
+            {
+                $self->{ 'equiv' }{ $url } 
+                    = $self->{ 'MD5_digest' }{ $MD5_digest }
+                ;
+            }
+            else
+            {
+                $self->{ 'MD5_digest' }{ $MD5_digest } = $url;
+                $self->{ 'urls' }{ $url }++;
+                $self->get_title( $url, $structure );
+                $self->{ 'summary' }{ $url } = 
+                    $self->{ 'summarizer' }->generate( $structure ) ||
+                    'NO SUMMARY'
+                ;
+                $self->{ 'url-callback' }->( 
+                    $url,
+                    $self->{ 'depth' }{ $url },
+                    $self->{ 'title' }{ $url },
+                    $self->{ 'summary' }{ $url } 
+                ) if defined $self->{ 'url-callback' };
+                $self->verbose( "url: ", $url );
+                $self->verbose( "depth: ", $self->{ 'depth' }{ $url } );
+                $self->verbose( "title: ", $self->{ 'title' }{ $url } );
+                $self->verbose( "summary: ", $self->{ 'summary' }{ $url } );
+            }
+        }
+    );
+
+    $self->{ 'robot' }->addHook( 
+        'invoke-on-link', 
+        sub {
+            my( $robot, $hook, $from_url, $to_url ) = @_;
+            # don't add links that don't look like HTML links
+            return unless $to_url =~ m{(?:/|\.s?html?)$};
+            if ( not defined( $self->{ 'depth' }{ $to_url } ) )
+            {
+                $self->{ 'depth' }{ $to_url } = 
+                    $self->{ 'depth' }{ $from_url } + 1
+                ;
+            }
+            # check the current depth, if the DEPTH option is set
+            return if ( 
+                defined $self->{ DEPTH } and
+                $self->{ 'depth' }{ $to_url } >= $self->{ DEPTH }
+            );
+            $self->{ 'link' }{ $from_url }{ $to_url }++;
+            $self->verbose( "link: $from_url -> $to_url" );
+        }
+    );
+
+    $self->{ 'robot' }->addHook( 
+        'add-url-test',
+        sub {
+            my( $robot, $hook, $url ) = @_;
+            # don't follow links that aren't internal to the site
+            return 0 unless $self->is_internal_url( $url );
+            # don't follow links that don't look like HTML links
+            return 0 unless $url =~ m{(?:/|\.s?html?)$};
+            # check the current depth, if the DEPTH option is set
+            return 0 if ( 
+                defined $self->{ DEPTH } and
+                $self->{ 'depth' }{ $url } >= $self->{ DEPTH }
+            );
+            return 1;
+        } 
+    );
+
+    $self->{ 'robot' }->addHook( 
+        'follow-url-test',
+        sub {
+            my( $robot, $hook, $url ) = @_;
+            # don't follow links that aren't internal to the site
+            return 0 unless $self->is_internal_url( $url );
+            # don't follow links that don't look like HTML links
+            return 0 unless $url =~ m{(?:/|\.s?html?)$};
+            # check the current depth, if the DEPTH option is set
+            return 0 if ( 
+                defined $self->{ DEPTH } and
+                $self->{ 'depth' }{ $url } >= $self->{ DEPTH }
+            );
+            return 1;
+        } 
+    );
+
+    $self->{ 'robot' }->addUrl( $self->{ 'ROOT' } );
+    $self->{ 'depth' }{ $self->{ 'ROOT' } } = 0;
+    $self->{ 'robot' }->run();
+
+    # Substitute equivilent links
+
+    for my $from_url ( keys %{ $self->{ 'link' } } )
+    {
+        for my $to_url ( keys %{ $self->{ 'link' }{ $from_url } } )
+        {
+            if ( 
+                exists( $self->{ 'equiv' }{ $from_url } ) or 
+                exists( $self->{ 'equiv' }{ $to_url } ) 
+            )
+            {
+                my $no = delete $self->{ 'link' }{ $from_url }{ $to_url };
+                $from_url = $self->{ 'equiv' }{ $from_url } || $from_url;
+                $to_url = $self->{ 'equiv' }{ $to_url } || $to_url;
+                $self->{ 'link' }{ $from_url }{ $to_url } += $no;
+            }
+        }
+    }
+}
+
+#------------------------------------------------------------------------------
+#
 # traverse - traverse the sitemap
 #
 #------------------------------------------------------------------------------
@@ -470,124 +700,6 @@ sub initialize
             return undef;
         }
     }
-
-    # Create HTML::Summary
-
-    $self->{ 'summarizer' } = 
-        new HTML::Summary LENGTH => $self->{ 'SUMMARY_LENGTH' }
-    ;
-
-    # Create WWW::Robot
-
-    $self->{ 'robot' } = new WWW::Robot(
-        'NAME'                  => 'WWW::Sitemap',
-        'VERSION'               => $VERSION,
-        'EMAIL'                 => $self->{ EMAIL },
-        'TRAVERSAL'             => 'breadth',
-        'USERAGENT'             => $self->{ USERAGENT },
-        'VERBOSE'               => $self->{ VERBOSE },
-    );
-
-    $self->{ 'robot' }->addHook( 
-        'invoke-on-get-error', 
-        sub {
-            my( $robot, $hook, $url, $response, $structure ) = @_;
-            $self->{ 'urls' }{ $url }++;
-            $self->{ 'title' }{ $url } = 'Error ' . $response->code();
-            $self->{ 'summary' }{ $url } = $response->message();
-        }
-    );
-
-    $self->{ 'robot' }->addHook( 
-        'invoke-on-contents', 
-        sub {
-            my( $robot, $hook, $url, $response, $structure ) = @_;
-            my $contents = $response->content();
-            my $MD5_digest = md5_hex( $contents );
-            if ( exists( $self->{ 'MD5_digest' }{ $MD5_digest } ) )
-            {
-                $self->{ 'equiv' }{ $url } 
-                    = $self->{ 'MD5_digest' }{ $MD5_digest }
-                ;
-            }
-            else
-            {
-                $self->{ 'MD5_digest' }{ $MD5_digest } = $url;
-                $self->{ 'urls' }{ $url }++;
-                $self->get_title( $url, $structure );
-                $self->{ 'summary' }{ $url } = 
-                    $self->{ 'summarizer' }->generate( $structure ) ||
-                    'NO SUMMARY'
-                ;
-                $self->verbose( "depth: ", $self->{ 'depth' }{ $url } );
-                $self->verbose( "title: ", $self->{ 'title' }{ $url } );
-                $self->verbose( "summary: ", $self->{ 'summary' }{ $url } );
-            }
-        }
-    );
-
-    $self->{ 'robot' }->addHook( 
-        'invoke-on-link', 
-        sub {
-            my( $robot, $hook, $from_url, $to_url ) = @_;
-            # don't add links that don't look like HTML links
-            return unless $to_url =~ m{(?:/|\.html?)$};
-            if ( not defined( $self->{ 'depth' }{ $to_url } ) )
-            {
-                $self->{ 'depth' }{ $to_url } = 
-                    $self->{ 'depth' }{ $from_url } + 1
-                ;
-            }
-            # check the current depth, if the DEPTH option is set
-            return if ( 
-                defined $self->{ DEPTH } and
-                $self->{ 'depth' }{ $to_url } >= $self->{ DEPTH }
-            );
-            $self->{ 'link' }{ $from_url }{ $to_url }++;
-            $self->verbose( "link: $from_url -> $to_url" );
-        }
-    );
-
-    $self->{ 'robot' }->addHook( 
-        'follow-url-test',
-        sub {
-            my( $robot, $hook, $url ) = @_;
-            # don't follow links that aren't internal to the site
-            return 0 unless $self->is_internal_url( $url );
-            # don't follow links that don't look like HTML links
-            return 0 unless $url =~ m{(?:/|\.html?)$};
-            # check the current depth, if the DEPTH option is set
-            return 0 if ( 
-                defined $self->{ DEPTH } and
-                $self->{ 'depth' }{ $url } >= $self->{ DEPTH }
-            );
-            return 1;
-        } 
-    );
-
-    $self->{ 'robot' }->addUrl( $self->{ 'ROOT' } );
-    $self->{ 'depth' }{ $self->{ 'ROOT' } } = 0;
-    $self->{ 'robot' }->run();
-
-    # Substitute equivilent links
-
-    for my $from_url ( keys %{ $self->{ 'link' } } )
-    {
-        for my $to_url ( keys %{ $self->{ 'link' }{ $from_url } } )
-        {
-            if ( 
-                exists( $self->{ 'equiv' }{ $from_url } ) or 
-                exists( $self->{ 'equiv' }{ $to_url } ) 
-            )
-            {
-                my $no = delete $self->{ 'link' }{ $from_url }{ $to_url };
-                $from_url = $self->{ 'equiv' }{ $from_url } || $from_url;
-                $to_url = $self->{ 'equiv' }{ $to_url } || $to_url;
-                $self->{ 'link' }{ $from_url }{ $to_url } += $no;
-            }
-        }
-    }
-
     return $self;
 }
 

@@ -6,7 +6,7 @@ WriteMakefile(
     'EXE_FILES'         => [ 'sitemapper.pl' ],
     'PREREQ_PM'         => 
     {
-        'WWW::Robot'    => 0.017,
+        'WWW::Robot'    => 0.021,
         'HTML::Summary' => 0,
         'Digest::MD5'   => 0,
         'Date::Format'  => 0,
@@ -16,6 +16,8 @@ WriteMakefile(
         'LWP::UserAgent'=> 0,
         'URI::URL'      => 0,
         'Term::ReadKey' => 0,
+        'Pod::Usage'    => 0,
+        'Tk'            => 0,
     },
     'VERSION_FROM'      => 'sitemapper.pl', # finds $VERSION
     'dist'         => {

@@ -11,30 +11,32 @@ use strict;
 
 =head1 NAME
 
-sitemapper - script for generating site maps
+sitemapper.pl - script for generating site maps
 
 =head1 SYNOPSIS
 
-    sitemapper 
-        [ -verbose ] 
+    sitemapper.pl 
+        [ -verbose <debug level> ] 
         [ -help ] 
         [ -doc ] 
         [ -depth <depth> ] 
         [ -proxy <proxy URL> ] 
         [ -[no]envproxy ] 
+        [ -agent <agent> ]
         [ -authen ] 
         [ -format <html|text|js|xml> ] 
         [ -summary <no. chars> ] 
         [ -title <page title> ] 
-        [ -email <your e-mail address> ]
+        [ -email <e-mail address> ]
+        [ -gui ]
         -url <root URL> 
 
 =cut
 
 =head1 DESCRIPTION
 
-B<sitemapper> generates site maps for a given site. It traverses a site from
-the root URL given as the L<OPTIONS/-site> option and generates an HTML page
+B<sitemapper.pl> generates site maps for a given site. It traverses a site from
+the root URL given as the -site option and generates an HTML page
 consisting of a bulleted list which reflects the structure of the site. 
 
 The structure reflects the distance from the home page of the pages listed;
@@ -43,40 +45,44 @@ the next level, pages accessible from those pages, etc. Obviously, pages that
 are linked from "higher" up pages may appear in the "wrong place" in the tree,
 than they "belong".
 
-The L<OPTIONS/-format> option can be used to specify alternative options for
+The -format option can be used to specify alternative options for
 formating the site map. Currently the options are html (as described above -
 the default), js, which uses Jef Pearlman's (jef@mit.edu) Javascript Tree
 class to display the site map as a collapsable tree, and text (plain text).
 
 =head1 OPTIONS
 
-=over 4
-
-=item -depth
+=head2 -depth <depth>
 
 Option to specify the depth of the site map generated. If no specified, 
 generates a sitemap of unlimited depth.
 
-=item -email
+=head2 -email <e-mail address>
 
 Option to specify the e-mail address which is reported by the robot to the site
 it gets pages from.
 
-=item -url
+=head2 -url <root URL>
 
 Option to specify a root URL to generate a site map for.
 
-=item -proxy
+=head2 -proxy <proxy URL>
 
 Specify an HTTP proxy to use. 
 
-=item -envproxy
+=head2 -[no]envproxy
 
 If -envproxy is set, the proxy specified by the $http_proxy environment
 variable will be used (this is the default behaviour). Use -noenvproxy to
 suppress this. -proxy takes precedence over -envproxy.
 
-=item -format
+=head2 -agent <agent>
+
+Allows the user to specify an agent for the robot to pretend to be (e.g.
+'Mozilla/4.5'). This can be necessary for sites that do browser sniff for
+serving particular content, etc.
+
+=head2 -format <formatting option>
 
 Option for specifying the for the site map. Possible values are:
 
@@ -101,59 +107,72 @@ An XML graph of linkage between pages.
 
 =back
 
-=item -summary <no. chars>
+=head2 -summary <no. chars>
 
 Automatically extract a summary to display with the title. This will be
 truncated at the specified number of characters.
 
-=item -title
+=head2 -title <page title>
 
 Option to specify a page title for the site map.
 
-=item -authen
+=head2 -authen
 
 Option to use LWP::AuthenAgent to get HTML pages. This allows the user to type
 username / password for pages that are access controlled.
 
-=item -help
+=head2 -gui
+
+Use a Tk GUI to run sitemapper.
+
+=head2 -help
 
 Display a short help message to standard output, with a brief
 description of purpose, and supported command-line switches.
 
-=item -doc
+=head2 -doc
 
 Display the full documentation for the script,
 generated from the embedded pod format doc.
 
-=item -version
+=head2 -version
 
 Print out the current version number.
 
-=item -verbose
+=head2 -verbose <debug level>
 
 Turn on verbose error messages.
 
-=back
-
 =head1 ENVIRONMENT
 
-B<sitemapper> makes use of the C<$http_proxy> environment variable, if it is
+B<sitemapper.pl> makes use of the C<$http_proxy> environment variable, if it is
 set.
+
+=head1 PREREQUISITES
+
+    Date::Format
+    HTML::Entities
+    Getopt::Long
+    IO::File
+    LWP::AuthenAgent
+    LWP::UserAgent
+    Pod::Usage
+    URI::URL
+    WWW::Sitemap
+
+=head1 OSNAMES
+
+    hpux 10 PA-RISC1.1 
+    linux 2.2.1 ppc-linux 
+    linux 2.2.2 i686-linux 
+    MSWin32 4.0 MSWin32-x86 
+    sunos 4.1.4 sun4-sunos 
+    sunos 5.6 sun4-solaris
 
 =head1 SEE ALSO
 
-Date::Format (L<Date::Format>)
-HTML::Entities (L<HTML::Entities>)
-Getopt::Long (L<Getopt::Long>)
-IO::File (L<IO::File>)
-LWP::AuthenAgent (L<LWP::AuthenAgent>)
-LWP::UserAgent (L<LWP::UserAgent>)
-Pod::Usage (L<Pod::Usage>)
-URI::URL (L<URI::URL>)
-WWW::Sitemap (L<WWW::Robot>)
 Jef Pearlman's Javascript Tree class 
-(L<http://developer.netscape.com/docs/examples/dynhtml/tree.html>)
-
+(http://developer.netscape.com/docs/examples/dynhtml/tree.html)
 
 =head1 BUGS
 
@@ -171,6 +190,10 @@ Copyright (c) 1998 Canon Research Centre Europe. All rights reserved.
 This script is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
+=head1 SCRIPT CATEGORIES
+
+Web
+
 =cut
 
 #------------------------------------------------------------------------------
@@ -182,11 +205,10 @@ it under the same terms as Perl itself.
 use Date::Format;
 use Getopt::Long;
 use HTML::Entities;
-use IO::File;
-use LWP::AuthenAgent;
-use LWP::UserAgent;
 use URI::URL;
-use WWW::Sitemap;
+
+require WWW::Sitemap;
+require IO::File;
 
 #------------------------------------------------------------------------------
 #
@@ -201,6 +223,8 @@ use vars qw(
     $WHEN 
     $HEADER 
     $FOOTER 
+    %DOC2POD
+    %FORMATS
 );
 
 # command line options - see pod
@@ -219,7 +243,9 @@ use vars qw (
     $opt_email
     $opt_proxy
     $opt_envproxy
+    $opt_agent
     $opt_output
+    $opt_gui
 );
 
 #------------------------------------------------------------------------------
@@ -231,7 +257,7 @@ use vars qw (
 ( $NAME ) = $0 =~ m{([^/]+)$};
 
 $CONTACT = 'wrigley@cre.canon.co.uk';
-$VERSION = '1.008';
+$VERSION = '1.015';
 $WHEN = time2str( "on %A the %o of %B %Y at %r", time );
 $HEADER = sub {
     my $title = shift;
@@ -264,6 +290,19 @@ $FOOTER = <<FOOTER;
             </TR>
         </TABLE>
 FOOTER
+
+%DOC2POD        = (
+    doc         => [ 2, 0 ],
+    help        => [ 1, 0 ],
+    usage       => [ 0, 1 ],
+);
+
+%FORMATS = (
+        html    => [ 'HTML Files', [ '.html', '.htm' ] ],
+        text    => [ 'Text Files', [ '.txt', '.text' ] ],
+        js      => [ 'HTML Files', [ '.html', '.htm' ] ],
+        xml     => [ 'XML Files', [ '.xml' ] ],
+);
 
 #------------------------------------------------------------------------------
 #
@@ -439,50 +478,21 @@ sub verbose {
 
 #------------------------------------------------------------------------------
 #
-# usage - print usage instructions (from pod)
+# autoloader for documentation stuff
 #
 #------------------------------------------------------------------------------
 
-sub usage {
+sub AUTOLOAD {
+    use vars qw( $AUTOLOAD );
     require 'Pod/Usage.pm';
     import Pod::Usage;
+    my ( $function ) = $AUTOLOAD =~ m/.*::(.*)/;
+    return unless exists( $DOC2POD{ $function } );
     pod2usage( 
-        message => shift,
-        verbose => 0,
-        exitval => 1,
+        verbose => $DOC2POD{ $function }[ 0 ],
+        exitval => $DOC2POD{ $function }[ 1 ]
     );
-};
-
-#------------------------------------------------------------------------------
-#
-# doc - print verbose documentation from pod
-#
-#------------------------------------------------------------------------------
-
-sub doc() {
-    require 'Pod/Usage.pm';
-    import Pod::Usage;
-    pod2usage( 
-        verbose => 2,
-        exitval => 0,
-    );
-};
-
-#------------------------------------------------------------------------------
-#
-# help - print help message (from pod)
-#
-#------------------------------------------------------------------------------
-
-sub help() {
-    require 'Pod/Usage.pm';
-    import Pod::Usage;
-    pod2usage(
-        message => shift,
-        exitval => 0,
-        verbose => 1,
-    );
-};
+}
 
 #------------------------------------------------------------------------------
 #
@@ -515,7 +525,7 @@ USAGE
 usage() unless GetOptions qw(
     help 
     doc 
-    verbose 
+    verbose=i
     version 
     authen
     depth=i
@@ -523,16 +533,17 @@ usage() unless GetOptions qw(
     output=s
     envproxy!
     proxy=s
+    agent=s
     title=s
     email=s
     summary=i
     format=s
+    gui
 );
 
-help if $opt_help;
-doc if $opt_doc;
+help() if $opt_help;
+doc() if $opt_doc;
 print "$VERSION\n" and exit( 0 ) if $opt_version;
-usage( '-url argument is required' ) unless $opt_url;
 
 check_options( 'format', [ 'xml', 'js', 'text', 'html' ], 'html' );
 
@@ -544,93 +555,130 @@ check_options( 'format', [ 'xml', 'js', 'text', 'html' ], 'html' );
 
 $|++;
 
+get_options_from_gui() and exit if $opt_gui;
+create_sitemap();
+
+#==============================================================================
+#
+# End of main
+#
+#==============================================================================
+
+#==============================================================================
+#
+# Subroutines
+#
+#==============================================================================
+
 #------------------------------------------------------------------------------
 #
-# select output file handle if $opt_output is defined
+# create_sitemap
 #
 #------------------------------------------------------------------------------
 
-if ( defined( $opt_output ) )
+sub create_sitemap
 {
-    die "$opt_output : $!\n" unless open( OUTPUT_FH, ">$opt_output" );
-    select OUTPUT_FH;
+    my $callback = shift;
+
+    # select output file handle if $opt_output is defined
+
+    if ( defined( $opt_output ) )
+    {
+        die "$opt_output : $!\n" unless open( OUTPUT_FH, ">$opt_output" );
+        select OUTPUT_FH;
+    }
+
+    usage( '-url argument is required' ) unless $opt_url;
+    my $ua = create_useragent();
+    my $sitemap = new WWW::Sitemap
+        EMAIL               => $opt_email || 'your@email.address',
+        USERAGENT           => $ua,
+        ROOT                => $opt_url,
+        SUMMARY_LENGTH      => $opt_summary || 200,
+        DEPTH               => $opt_depth,
+        VERBOSE             => $opt_verbose,
+    or die "new WWW::Sitemap failed\n";
+    if ( defined $callback )
+    {
+        $sitemap->url_callback(
+            sub {
+                my ( $url, $depth, $title, $summary ) = @_;
+                $callback->( "$url ...\n" );
+            }
+        );
+    }
+    $sitemap->generate();
+    print_sitemap( $sitemap );
 }
 
 #------------------------------------------------------------------------------
 #
-# Create the USERAGENT
+# create_useragent() - create the useragent, and set the http proxy, if
+# necessary
 #
 #------------------------------------------------------------------------------
 
-my $ua;
-
-if ( $opt_authen )
+sub create_useragent
 {
-    $ua = new LWP::AuthenAgent;
-}
-else
-{
-    $ua = new LWP::UserAgent;
-}
+    my $ua;
 
-#------------------------------------------------------------------------------
-#
-# Set the proxy from the environment or the proxy option
-#
-#------------------------------------------------------------------------------
+    if ( $opt_authen )
+    {
+        require LWP::AuthenAgent;
+        $ua = new LWP::AuthenAgent;
+    }
+    else
+    {
+        require LWP::UserAgent;
+        $ua = new LWP::UserAgent;
+    }
 
-if ( defined( $opt_proxy ) )
-{
-    verbose( "proxy = $opt_proxy ..." );
-    $ua->proxy( [ 'http' ], $opt_proxy );
-}
-elsif ( $opt_envproxy )
-{
-    verbose( "getting proxy from environment ..." );
-    verbose( "proxy = $ENV{ http_proxy } ..." );
-    $ua->env_proxy();
-}
-else
-{
-    verbose( "no proxy ..." );
-    $ua->no_proxy();
-}
+    # Set the proxy from the environment or the proxy option
 
-#------------------------------------------------------------------------------
-#
-# Create the WWW::Sitemap object
-#
-#------------------------------------------------------------------------------
+    if ( defined( $opt_proxy ) )
+    {
+        verbose( "proxy = $opt_proxy ..." );
+        $ua->proxy( [ 'http' ], $opt_proxy );
+    }
+    elsif ( $opt_envproxy )
+    {
+        verbose( "getting proxy from environment ..." );
+        verbose( "proxy = $ENV{ http_proxy } ..." );
+        $ua->env_proxy();
+    }
+    else
+    {
+        verbose( "no proxy ..." );
+        $ua->no_proxy();
+    }
 
-my $sitemap = new WWW::Sitemap
-    EMAIL               => $opt_email || 'your@email.address',
-    USERAGENT           => $ua,
-    ROOT                => $opt_url,
-    SUMMARY_LENGTH      => $opt_summary || 200,
-    DEPTH               => $opt_depth,
-    VERBOSE             => $opt_verbose,
-or die "new WWW::Sitemap failed\n";
+    if ( $opt_agent )
+    {
+        verbose( "Setting agent to $opt_agent ..." );
+        $ua->agent( $opt_agent );
+    }
 
-#------------------------------------------------------------------------------
-#
-# Print out the link graph, if $opt_format is 'xml' ...
-#
-#------------------------------------------------------------------------------
-
-if ( $opt_format eq 'xml' )
-{
-    print_xml_link_graph( $sitemap );
+    return $ua;
 }
 
 #------------------------------------------------------------------------------
 #
-# ... or print the sitemap in the format specified by the -format command line
-# option
+# print_sitemap() - print the sitemap, according to $opt_format
 #
 #------------------------------------------------------------------------------
 
-else
+sub print_sitemap()
 {
+    my $sitemap = shift;
+
+    # Print out the link graph, if $opt_format is 'xml' ...
+
+    if ( $opt_format eq 'xml' )
+    {
+        print_xml_link_graph( $sitemap );
+        return;
+    }
+
     $print_page_start{ $opt_format }->( 
         defined( $opt_title ) ? $opt_title : "Site map for $opt_url" 
     );
@@ -657,18 +705,6 @@ else
     $print_end_all_lists{ $opt_format }->( );
     $print_page_end{ $opt_format }->( );
 }
-
-#==============================================================================
-#
-# End of main
-#
-#==============================================================================
-
-#==============================================================================
-#
-# Subroutines
-#
-#==============================================================================
 
 #------------------------------------------------------------------------------
 #
@@ -708,6 +744,251 @@ LINK
 />
 URL
     }
+}
+
+#------------------------------------------------------------------------------
+#
+# report_error - pop up a Tk error dialog box 
+#
+#------------------------------------------------------------------------------
+
+sub report_error
+{
+    my $mw = shift;
+    my $msg = shift;
+
+    my $errorBox = $mw->Dialog(
+        -title	        => 'Error: ',
+    );
+    $errorBox->configure(
+        -wraplength     => '4i',
+        -text	        => $msg,
+    );
+    $errorBox->Show;
+}
+
+#------------------------------------------------------------------------------
+#
+# get_options_from_gui()
+#
+#------------------------------------------------------------------------------
+
+sub get_options_from_gui
+{
+
+    require Tk;
+    import Tk;
+
+    require Tk::ROText;
+    require Tk::Dialog;
+
+    # the main window
+
+    my $mw = MainWindow->new;
+
+    # the about diolog
+
+    my $diAbout = $mw->Dialog(
+            -title	=> 'About: ',
+    );
+    $diAbout ->configure(
+            -wraplength => '4i',
+            -text	=> <<ABOUT_TEXT,
+
+sitemapper $VERSION by Ave Wrigley 
+    <wrigley\@cre.canon.co.uk>
+Tk GUI version by Nicholas Marshall 
+    <nmarshall\@pbs.org>
+            
+This script is free software; you can 
+redistribute it and/or modify it under
+the same terms as Perl itself.
+
+ABOUT_TEXT
+    );
+
+
+    # the menu bar 
+
+    my $menu = $mw->Frame(
+        -relief         => 'raised',
+        -borderwidth    => 2
+    );
+    $menu->pack( -fill => 'x' );
+
+    my $menuFile = $menu->Menubutton(
+        -text           => 'File' , 
+        -underline      => 0
+    );
+    $menuFile->command(
+        -label          =>'Exit', 
+        -command        => [ sub{ exit }, 'Exit' ]
+    );
+    $menuFile->pack( -side => 'left' );
+
+    my $menuHelp = $menu->Menubutton(
+        -text           => 'Help', 
+        -underline      => 0
+    );
+    $menuHelp->command(
+        -label          =>'About',
+        -command        => [ sub{ $diAbout->Show } ] 
+    );
+    $menuHelp->pack( -side => 'right' );
+
+    # the url widget ...
+
+    my $urlFrame = $mw->Frame;
+    $urlFrame->pack( -fill => 'x' );
+
+    my $urlLabel = $urlFrame->Label( 
+        -text           => 'Enter target URL:'
+    );
+    $urlLabel->pack( -side => 'left');
+
+    my $urlEntry = $urlFrame->Entry(
+        -width          => 40,
+        -textvariable   => \$opt_url,
+    );
+    $urlEntry->pack( -side => 'right');
+
+    # the email widget ...
+
+    my $emailFrame = $mw->Frame;
+    $emailFrame->pack( -fill => 'x');
+
+    my $emailLabel = $emailFrame->Label(
+        -text           => 'Enter your email:'
+    );
+    $emailLabel->pack( -side => 'left');
+
+    my $emailEntry = $emailFrame->Entry(
+        -textvariable   => \$opt_email,
+    );
+    $emailEntry->pack( -side => 'right');
+
+    # the depth widget ...
+
+    my $depthFrame = $mw->Frame;
+    $depthFrame->pack( -fill => 'x');
+
+    my $depthLabel = $depthFrame->Label(
+        -text           => 'Enter how deep to go:'
+    );
+    $depthLabel->pack( -side => 'left');
+
+    my $depthEntry = $depthFrame->Entry(
+        -textvariable   => \$opt_depth,
+    );
+    $depthEntry->pack( -side => 'right');
+
+    # the format widget ...
+
+    my $formatRB = $mw->Frame;
+    $formatRB->pack( -fill => 'x' );
+
+    my $formatLabel = $formatRB->Label(
+        -text           => 'Output Format?'
+    );
+    foreach my $format ( keys %FORMATS )
+    {
+        $formatRB->Radiobutton(
+            -text       => $format,
+            -variable   => \$opt_format,
+            -relief     => 'flat',
+            -value      => lc( $format ),
+        )->pack(-side => 'right' );
+    }
+    $formatLabel->pack( -side => 'left');
+
+    # the output widget ...
+
+    my $outputFrame = $mw->Frame(
+        -relief         => 'flat',
+        -borderwidth    => 0
+    );
+    $outputFrame->pack( -fill => 'x');
+
+    my $outputLabel = $outputFrame->Label(
+        -text           => 'Select the output file:'
+    );
+    $outputLabel->pack( -side => 'left');
+
+    my $outputEntry = $outputFrame->Entry( 
+        -width          => 20,
+        -textvariable   => \$opt_output,
+    );
+    $outputEntry->pack( -side => 'left');
+
+    my $outputButton = $outputFrame->Button( 
+        -text           => 'Browse..',
+        -command        => sub{
+            my $file = $mw->getSaveFile(
+                -filetypes => [ 
+                    $FORMATS{ $opt_format }, 
+                    [ 'All files',  '*' ] 
+                ],
+                -initialfile => 'Untitled',
+                -defaultextension => $FORMATS{ $opt_format }->[ 1 ][ 0 ]
+            );
+            if ( defined $file and $file ne '' ) 
+            {
+                $outputEntry->delete( 0, 'end' );
+                $outputEntry->insert( 0, $file );
+                $outputEntry->xview( 'end' );
+            }
+        },
+
+    );
+    $outputButton->pack( -side => 'left');
+
+    my $status_text;
+
+    my $pid;
+
+    my $statusBox = $mw->Scrolled( 'ROText' );
+
+    my $attackButton = $mw->Button( 
+        -text           => 'Generate Sitemap',
+        -command        => sub {
+            report_error( $mw, "No URL Specified" ) and return 
+                unless $opt_url
+            ;
+            report_error( $mw, "No format specified" ) and return 
+                unless $opt_format
+            ;
+            # report_error( $mw, "No depth specified" ) and return 
+                # unless $opt_depth
+            # ;
+            report_error( $mw, "No output specified" ) and return 
+                unless $opt_output
+            ;
+
+            $statusBox->insert( 'end', "Generating sitemap of $opt_url\n" );
+            $statusBox->yview( 'end' );
+
+            create_sitemap(
+                sub {
+                    my $text = shift;
+                    $statusBox->insert( 'end', $text );
+                    $statusBox->yview( 'end' );
+                    $mw->update();
+                }
+            );
+
+            $statusBox->insert( 'end', "Sitemap of $opt_url written to $opt_output\n" );
+            $statusBox->yview( 'end' );
+
+            $mw->Dialog(
+                -text           => 'Sitemap generation complete',
+                -buttons        => [ 'Exit' ],
+            )->Show();
+            exit;
+        }
+    );
+    $attackButton->pack;
+    $statusBox->pack;
+    MainLoop();
 }
 
 #==============================================================================
